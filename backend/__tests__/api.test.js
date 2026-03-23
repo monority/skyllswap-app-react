@@ -1,4 +1,6 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const mockPrisma = {
     user: {
@@ -17,6 +19,17 @@ jest.mock('@prisma/client', () => ({
 }));
 
 const { app, validateProfileUpdate, countOverlap } = require('../index');
+
+const signTestToken = (sub) =>
+    jwt.sign(
+        {
+            sub,
+            email: 'test@example.com',
+            name: 'Test User',
+        },
+        process.env.JWT_SECRET || 'change-me-in-env',
+        { expiresIn: '1h' },
+    );
 
 describe('API basic behavior', () => {
     beforeEach(() => {
@@ -65,6 +78,215 @@ describe('API basic behavior', () => {
 
         expect(response.status).toBe(401);
         expect(response.body.message).toBe('Unauthorized');
+    });
+
+    test('GET /api/auth/me with invalid token returns 401', async () => {
+        const response = await request(app)
+            .get('/api/auth/me')
+            .set('Authorization', 'Bearer not-a-real-token');
+
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('Invalid or expired token');
+    });
+});
+
+describe('API business flows with Prisma mocks', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('POST /api/auth/register creates a user and normalizes email', async () => {
+        mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+        mockPrisma.user.create.mockResolvedValueOnce({
+            id: 10,
+            name: 'Alice',
+            email: 'alice@example.com',
+            passwordHash: 'hashed',
+            profile: {
+                city: 'Paris',
+                availability: 'flexible',
+                offers: [],
+                needs: [],
+            },
+        });
+
+        const response = await request(app).post('/api/auth/register').send({
+            name: 'Alice',
+            email: ' ALICE@EXAMPLE.COM ',
+            password: 'password123',
+        });
+
+        expect(response.status).toBe(201);
+        expect(response.body.token).toBeDefined();
+        expect(response.body.user).toMatchObject({
+            id: 10,
+            email: 'alice@example.com',
+        });
+        expect(mockPrisma.user.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    email: 'alice@example.com',
+                }),
+            }),
+        );
+    });
+
+    test('POST /api/auth/register returns 409 when email is already used', async () => {
+        mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 99, email: 'used@example.com' });
+
+        const response = await request(app).post('/api/auth/register').send({
+            name: 'Bob',
+            email: 'used@example.com',
+            password: 'password123',
+        });
+
+        expect(response.status).toBe(409);
+        expect(response.body.message).toBe('email already used');
+        expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/auth/login returns 401 for unknown email', async () => {
+        mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+
+        const response = await request(app).post('/api/auth/login').send({
+            email: 'nobody@example.com',
+            password: 'password123',
+        });
+
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('invalid credentials');
+    });
+
+    test('POST /api/auth/login returns 401 for wrong password', async () => {
+        const passwordHash = await bcrypt.hash('good-password', 4);
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+            id: 11,
+            name: 'Clara',
+            email: 'clara@example.com',
+            passwordHash,
+            profile: {
+                city: 'Paris',
+                availability: 'soir',
+                offers: ['React'],
+                needs: ['Design'],
+            },
+        });
+
+        const response = await request(app).post('/api/auth/login').send({
+            email: 'clara@example.com',
+            password: 'bad-password',
+        });
+
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('invalid credentials');
+    });
+
+    test('GET /api/auth/me returns public user for valid token', async () => {
+        const token = signTestToken(42);
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+            id: 42,
+            name: 'Diane',
+            email: 'diane@example.com',
+            profile: {
+                city: 'Lyon',
+                availability: 'week-end',
+                offers: ['React'],
+                needs: ['Node.js'],
+            },
+        });
+
+        const response = await request(app)
+            .get('/api/auth/me')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.user).toMatchObject({
+            id: 42,
+            email: 'diane@example.com',
+            profile: expect.objectContaining({ city: 'Lyon' }),
+        });
+    });
+
+    test('PUT /api/profile/me rejects invalid payload before DB update', async () => {
+        const token = signTestToken(21);
+
+        const response = await request(app)
+            .put('/api/profile/me')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ availability: 'nuit' });
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toContain('availability must be one of');
+        expect(mockPrisma.profile.update).not.toHaveBeenCalled();
+    });
+
+    test('GET /api/matches/me returns empty match when no candidates', async () => {
+        const token = signTestToken(5);
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+            id: 5,
+            name: 'Emma',
+            profile: {
+                city: 'Paris',
+                availability: 'flexible',
+                offers: ['React'],
+                needs: ['Design UI'],
+            },
+        });
+        mockPrisma.user.findMany.mockResolvedValueOnce([]);
+
+        const response = await request(app)
+            .get('/api/matches/me')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.bestMatch).toBeNull();
+        expect(response.body.message).toContain('Aucun autre profil');
+    });
+
+    test('GET /api/matches/me returns top candidate with computed compatibility', async () => {
+        const token = signTestToken(7);
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+            id: 7,
+            name: 'Farid',
+            profile: {
+                city: 'Nantes',
+                availability: 'soir',
+                offers: ['React'],
+                needs: ['Design UI'],
+            },
+        });
+        mockPrisma.user.findMany.mockResolvedValueOnce([
+            {
+                id: 8,
+                name: 'Gael',
+                profile: {
+                    city: 'Nantes',
+                    offers: ['Design UI'],
+                    needs: ['React'],
+                },
+            },
+            {
+                id: 9,
+                name: 'Hugo',
+                profile: {
+                    city: 'Rennes',
+                    offers: ['Cuisine'],
+                    needs: ['Photo'],
+                },
+            },
+        ]);
+
+        const response = await request(app)
+            .get('/api/matches/me')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.comparedProfiles).toBe(2);
+        expect(response.body.bestMatch).toMatchObject({
+            pseudo: 'Gael',
+            city: 'Nantes',
+            compatibility: 100,
+        });
     });
 });
 

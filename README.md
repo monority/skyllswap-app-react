@@ -27,6 +27,21 @@ copy .env.example .env
 npm run dev
 ```
 
+## Tests
+
+Backend:
+
+```bash
+cd backend
+npm run test
+npm run test:coverage
+```
+
+CI:
+
+- Workflow GitHub Actions: `.github/workflows/backend-ci.yml`
+- Lance les tests backend avec couverture sur `push` et `pull_request`
+
 ## Endpoints disponibles
 
 - `GET /api/health`
