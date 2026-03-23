@@ -7,7 +7,7 @@ const parseCommaSeparated = (text) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const roadmapItems = [
+const baseRoadmapItems = [
   { id: 1, label: 'Auth utilisateur', status: 'done' },
   { id: 2, label: 'Creation du profil (offres / besoins)', status: 'done' },
   { id: 3, label: 'Persistance PostgreSQL + Prisma', status: 'done' },
@@ -28,6 +28,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [apiStatus, setApiStatus] = useState('checking');
   const [matchPreview, setMatchPreview] = useState(null);
+  const [isRealMatchLive, setIsRealMatchLive] = useState(false);
+  const [matchHintMessage, setMatchHintMessage] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
@@ -160,6 +162,67 @@ function App() {
 
     fetchProfile();
   }, [apiBaseUrl, authToken]);
+
+  useEffect(() => {
+    const fetchRealMatch = async () => {
+      if (!authToken) {
+        setIsRealMatchLive(false);
+        try {
+          const previewResponse = await fetch(`${apiBaseUrl}/api/matches/preview`);
+          if (previewResponse.ok) {
+            const previewData = await previewResponse.json();
+            setMatchPreview(previewData.bestMatch || null);
+          }
+        } catch {
+          // no-op
+        }
+        setMatchHintMessage('Etape suivante: passer du preview aleatoire a un matching reel en base.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/matches/me`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          setIsRealMatchLive(false);
+          setMatchHintMessage(data.message || 'Matching reel indisponible pour le moment.');
+          return;
+        }
+
+        setIsRealMatchLive(true);
+        if (data.bestMatch) {
+          setMatchPreview(data.bestMatch);
+          setMatchHintMessage('Matching reel actif: resultat calcule depuis les profils en base.');
+        } else {
+          setMatchPreview(null);
+          setMatchHintMessage(data.message || 'Aucun match reel pour le moment.');
+        }
+      } catch {
+        setIsRealMatchLive(false);
+        setMatchHintMessage('Erreur reseau pendant le calcul du matching reel.');
+      }
+    };
+
+    fetchRealMatch();
+  }, [apiBaseUrl, authToken]);
+
+  const roadmapItems = useMemo(
+    () =>
+      baseRoadmapItems.map((item) =>
+        item.id === 4
+          ? {
+              ...item,
+              status: isRealMatchLive ? 'done' : 'in-progress',
+            }
+          : item,
+      ),
+    [isRealMatchLive],
+  );
 
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -470,9 +533,7 @@ function App() {
           ) : (
             <p>Match indisponible (API non joignable).</p>
           )}
-          <p className="hint">
-            Etape suivante: passer du preview aleatoire a un matching reel en base.
-          </p>
+          <p className="hint">{matchHintMessage || 'Calcul du matching en cours...'}</p>
         </article>
       </section>
 

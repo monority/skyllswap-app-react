@@ -32,6 +32,7 @@ npm run dev
 - `GET /api/health`
 - `GET /api/skills?q=react`
 - `GET /api/matches/preview`
+- `GET /api/matches/me` (Bearer token)
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me` (Bearer token)

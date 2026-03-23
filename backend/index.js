@@ -113,6 +113,23 @@ const serializeProfile = (profile) => ({
     needs: profile.needs,
 });
 
+const toNormalizedSet = (items) =>
+    new Set((items || []).map((item) => item.toString().trim().toLowerCase()).filter(Boolean));
+
+const countOverlap = (left, right) => {
+    const leftSet = toNormalizedSet(left);
+    const rightSet = toNormalizedSet(right);
+    let count = 0;
+
+    for (const value of leftSet) {
+        if (rightSet.has(value)) {
+            count += 1;
+        }
+    }
+
+    return count;
+};
+
 const toPublicUser = (user) => ({
     id: user.id,
     name: user.name,
@@ -330,6 +347,86 @@ app.get('/api/matches/preview', (_req, res) => {
             compatibility: score,
         },
     });
+});
+
+app.get('/api/matches/me', authRequired, async (req, res) => {
+    try {
+        const currentUserId = Number(req.auth.sub);
+        const currentUser = await prisma.user.findUnique({
+            where: { id: currentUserId },
+            include: {
+                profile: true,
+            },
+        });
+
+        if (!currentUser || !currentUser.profile) {
+            return res.status(404).json({ message: 'profile not found for current user' });
+        }
+
+        const candidates = await prisma.user.findMany({
+            where: {
+                id: {
+                    not: currentUserId,
+                },
+                profile: {
+                    isNot: null,
+                },
+            },
+            include: {
+                profile: true,
+            },
+        });
+
+        if (!candidates.length) {
+            return res.json({
+                user: currentUser.name,
+                city: currentUser.profile.city,
+                bestMatch: null,
+                message: 'Aucun autre profil disponible pour le moment.',
+            });
+        }
+
+        const totalDesired = Math.max(
+            1,
+            (currentUser.profile.offers || []).length + (currentUser.profile.needs || []).length,
+        );
+
+        const ranked = candidates.map((candidate) => {
+            const givesCount = countOverlap(currentUser.profile.offers, candidate.profile.needs);
+            const receivesCount = countOverlap(currentUser.profile.needs, candidate.profile.offers);
+            const base = ((givesCount + receivesCount) / totalDesired) * 80;
+            const reciprocalBonus = givesCount > 0 && receivesCount > 0 ? 20 : 0;
+            const compatibility = Math.min(100, Math.round(base + reciprocalBonus));
+
+            return {
+                candidate,
+                givesCount,
+                receivesCount,
+                compatibility,
+            };
+        });
+
+        ranked.sort((a, b) => b.compatibility - a.compatibility);
+        const best = ranked[0];
+
+        const bestMatch = {
+            pseudo: best.candidate.name,
+            gives: best.givesCount > 0 ? 'Competences compatibles trouvees' : 'Aucun recoupement fort',
+            wants: best.receivesCount > 0 ? 'Besoins reciproques identifies' : 'Peu de besoins reciproques',
+            city: best.candidate.profile.city,
+            compatibility: best.compatibility,
+        };
+
+        return res.json({
+            user: currentUser.name,
+            city: currentUser.profile.city,
+            bestMatch,
+            comparedProfiles: candidates.length,
+        });
+    } catch (error) {
+        console.error('Fetch real match failed', error);
+        return res.status(500).json({ message: 'internal server error' });
+    }
 });
 
 app.listen(PORT, () => {
