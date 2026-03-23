@@ -216,9 +216,9 @@ function App() {
       baseRoadmapItems.map((item) =>
         item.id === 4
           ? {
-              ...item,
-              status: isRealMatchLive ? 'done' : 'in-progress',
-            }
+            ...item,
+            status: isRealMatchLive ? 'done' : 'in-progress',
+          }
           : item,
       ),
     [isRealMatchLive],
