@@ -429,18 +429,26 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    if (JWT_SECRET === 'change-me-in-env') {
-        console.warn('Using fallback JWT_SECRET. Set JWT_SECRET in .env for real usage.');
-    }
+if (require.main === module) {
+    app.listen(PORT, () => {
+        if (JWT_SECRET === 'change-me-in-env') {
+            console.warn('Using fallback JWT_SECRET. Set JWT_SECRET in .env for real usage.');
+        }
 
-    console.log(`SkillSwap API running on http://localhost:${PORT}`);
-});
+        console.log(`SkillSwap API running on http://localhost:${PORT}`);
+    });
 
-const shutdown = async () => {
-    await prisma.$disconnect();
-    process.exit(0);
+    const shutdown = async () => {
+        await prisma.$disconnect();
+        process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+}
+
+module.exports = {
+    app,
+    validateProfileUpdate,
+    countOverlap,
 };
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
