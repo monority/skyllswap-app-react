@@ -304,12 +304,48 @@ button.secondary {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(249, 253, 255, 0.92));
 }
 
-.roadmap ol {
+.roadmap-list {
   margin: 0;
   padding-left: 20px;
   display: grid;
-  gap: 7px;
+  gap: 9px;
   color: var(--ink-700);
+}
+
+.roadmap-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  line-height: 1.35;
+}
+
+.roadmap-pill {
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.roadmap-pill.done {
+  color: #0d5f46;
+  border-color: #83caaa;
+  background: #e8f8f0;
+}
+
+.roadmap-pill.in-progress {
+  color: #734700;
+  border-color: #e2bf74;
+  background: #fff4de;
+}
+
+.roadmap-pill.todo {
+  color: #25546a;
+  border-color: #b8d0dc;
+  background: #edf7fb;
 }
 
 @keyframes reveal {
@@ -342,6 +378,11 @@ button.secondary {
   }
 
   .auth-actions {
+    flex-direction: column;
+  }
+
+  .roadmap-item {
+    align-items: flex-start;
     flex-direction: column;
   }
 }

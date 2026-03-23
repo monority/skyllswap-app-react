@@ -7,6 +7,21 @@ const parseCommaSeparated = (text) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const roadmapItems = [
+  { id: 1, label: 'Auth utilisateur', status: 'done' },
+  { id: 2, label: 'Creation du profil (offres / besoins)', status: 'done' },
+  { id: 3, label: 'Persistance PostgreSQL + Prisma', status: 'done' },
+  { id: 4, label: 'Matching reel base sur offres / besoins', status: 'in-progress' },
+  { id: 5, label: 'Messagerie basique entre utilisateurs', status: 'todo' },
+  { id: 6, label: 'Deploiement cloud (front + API + DB)', status: 'todo' },
+];
+
+const roadmapStatusLabel = {
+  done: 'Fait',
+  'in-progress': 'En cours',
+  todo: 'A faire',
+};
+
 function App() {
   const [query, setQuery] = useState('');
   const [skills, setSkills] = useState([]);
@@ -456,19 +471,22 @@ function App() {
             <p>Match indisponible (API non joignable).</p>
           )}
           <p className="hint">
-            Etape suivante: brancher la persistance PostgreSQL + Prisma.
+            Etape suivante: passer du preview aleatoire a un matching reel en base.
           </p>
         </article>
       </section>
 
       <section className="roadmap panel">
         <h2>Roadmap guidee</h2>
-        <ol>
-          <li>Auth utilisateur</li>
-          <li>Creation du profil (offres / besoins)</li>
-          <li>Persistance en base PostgreSQL</li>
-          <li>Messagerie basique</li>
-          <li>Deploiement Vercel + API cloud</li>
+        <ol className="roadmap-list">
+          {roadmapItems.map((item) => (
+            <li key={item.id} className="roadmap-item">
+              <span>{item.label}</span>
+              <span className={`roadmap-pill ${item.status}`}>
+                {roadmapStatusLabel[item.status]}
+              </span>
+            </li>
+          ))}
         </ol>
       </section>
     </main>

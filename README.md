@@ -14,6 +14,8 @@ Premier jet full-stack pour portfolio.
 ```bash
 cd backend
 copy .env.example .env
+npm run prisma:generate
+npm run prisma:migrate
 npm run dev
 ```
 
@@ -39,6 +41,6 @@ npm run dev
 
 ## Etape suivante (guidee)
 
-- Connecter une base PostgreSQL avec Prisma
-- Persister le profil utilisateur (offres / besoins)
-- Ajouter edition de profil depuis l'interface
+- Ajouter une messagerie basique entre utilisateurs
+- Calculer des vrais matchs a partir des offres / besoins en base
+- Deployer PostgreSQL + API
