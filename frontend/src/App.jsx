@@ -259,14 +259,14 @@ function App() {
       const payload =
         authMode === 'register'
           ? {
-              name: authForm.name.trim(),
-              email: authForm.email.trim().toLowerCase(),
-              password: authForm.password,
-            }
+            name: authForm.name.trim(),
+            email: authForm.email.trim().toLowerCase(),
+            password: authForm.password,
+          }
           : {
-              email: authForm.email.trim().toLowerCase(),
-              password: authForm.password,
-            };
+            email: authForm.email.trim().toLowerCase(),
+            password: authForm.password,
+          };
 
       const response = await apiFetch(`/api/auth/${endpoint}`, {
         method: 'POST',
