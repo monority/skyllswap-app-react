@@ -18,6 +18,9 @@ const prisma = new PrismaClient({ adapter });
 const PORT = process.env.PORT || 4000;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-env';
+const ALLOWED_ORIGINS = FRONTEND_ORIGIN.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 const skills = [
     { id: 1, title: 'JavaScript', level: 'Intermediaire', offers: 14, needs: 9 },
@@ -173,10 +176,20 @@ const authRequired = (req, res, next) => {
 
 app.use(
     cors({
-        origin: FRONTEND_ORIGIN,
+        origin: (origin, callback) => {
+            if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error('CORS origin not allowed'));
+        },
     }),
 );
 app.use(express.json());
+
+app.get('/', (_req, res) => {
+    res.json({ status: 'ok', service: 'skillswap-local-api' });
+});
 
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -585,7 +598,7 @@ if (require.main === module) {
             console.warn('Using fallback JWT_SECRET. Set JWT_SECRET in .env for real usage.');
         }
 
-        console.log(`SkillSwap API running on http://localhost:${PORT}`);
+        console.log(`SkillSwap API running on port ${PORT}`);
     });
 
     const shutdown = async () => {

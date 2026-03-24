@@ -13,7 +13,7 @@ const baseRoadmapItems = [
   { id: 3, label: 'Persistance PostgreSQL + Prisma', status: 'done' },
   { id: 4, label: 'Matching reel base sur offres / besoins', status: 'in-progress' },
   { id: 5, label: 'Messagerie basique entre utilisateurs', status: 'in-progress' },
-  { id: 6, label: 'Deploiement cloud (front + API + DB)', status: 'in-progress' },
+  { id: 6, label: 'Deploiement cloud (front + API + DB)', status: 'done' },
 ];
 
 const roadmapStatusLabel = {
