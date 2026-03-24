@@ -82,7 +82,7 @@ describe('API basic behavior', () => {
         const response = await request(app).post('/api/auth/register').send(payload);
 
         expect(response.status).toBe(400);
-        expect(response.body.message).toContain('at least 6 chars');
+        expect(response.body.message).toContain('at least 8 chars');
     });
 
     test('GET /api/matches/me without token returns 401', async () => {
@@ -129,11 +129,13 @@ describe('API business flows with Prisma mocks', () => {
         });
 
         expect(response.status).toBe(201);
-        expect(response.body.token).toBeDefined();
         expect(response.body.user).toMatchObject({
             id: 10,
             email: 'alice@example.com',
         });
+        expect(response.headers['set-cookie']).toEqual(
+            expect.arrayContaining([expect.stringContaining('skillswap_session=')]),
+        );
         expect(mockPrisma.user.create).toHaveBeenCalledWith(
             expect.objectContaining({
                 data: expect.objectContaining({
@@ -153,7 +155,7 @@ describe('API business flows with Prisma mocks', () => {
         });
 
         expect(response.status).toBe(409);
-        expect(response.body.message).toBe('email already used');
+        expect(response.body.message).toBe('unable to create account');
         expect(mockPrisma.user.create).not.toHaveBeenCalled();
     });
 
@@ -193,6 +195,36 @@ describe('API business flows with Prisma mocks', () => {
         expect(response.body.message).toBe('invalid credentials');
     });
 
+    test('POST /api/auth/login sets a session cookie on success', async () => {
+        const passwordHash = await bcrypt.hash('good-password', 4);
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+            id: 12,
+            name: 'Lea',
+            email: 'lea@example.com',
+            passwordHash,
+            profile: {
+                city: 'Paris',
+                availability: 'soir',
+                offers: ['React'],
+                needs: ['Node.js'],
+            },
+        });
+
+        const response = await request(app).post('/api/auth/login').send({
+            email: 'lea@example.com',
+            password: 'good-password',
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.body.user).toMatchObject({
+            id: 12,
+            email: 'lea@example.com',
+        });
+        expect(response.headers['set-cookie']).toEqual(
+            expect.arrayContaining([expect.stringContaining('skillswap_session=')]),
+        );
+    });
+
     test('GET /api/auth/me returns public user for valid token', async () => {
         const token = signTestToken(42);
         mockPrisma.user.findUnique.mockResolvedValueOnce({
@@ -216,6 +248,31 @@ describe('API business flows with Prisma mocks', () => {
             id: 42,
             email: 'diane@example.com',
             profile: expect.objectContaining({ city: 'Lyon' }),
+        });
+    });
+
+    test('GET /api/auth/me accepts a session cookie', async () => {
+        const token = signTestToken(43);
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+            id: 43,
+            name: 'Eva',
+            email: 'eva@example.com',
+            profile: {
+                city: 'Bordeaux',
+                availability: 'flexible',
+                offers: ['Design'],
+                needs: ['React'],
+            },
+        });
+
+        const response = await request(app)
+            .get('/api/auth/me')
+            .set('Cookie', [`skillswap_session=${token}`]);
+
+        expect(response.status).toBe(200);
+        expect(response.body.user).toMatchObject({
+            id: 43,
+            email: 'eva@example.com',
         });
     });
 

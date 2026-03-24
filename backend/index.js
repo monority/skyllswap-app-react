@@ -1,8 +1,11 @@
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 
 dotenv.config();
@@ -15,6 +18,20 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-env';
 const ALLOWED_ORIGINS = FRONTEND_ORIGIN.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'skillswap_session';
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const hasLocalOrigin = ALLOWED_ORIGINS.some(
+    (origin) => origin.includes('localhost') || origin.includes('127.0.0.1'),
+);
+const COOKIE_SECURE =
+    process.env.COOKIE_SECURE === 'true'
+        ? true
+        : process.env.COOKIE_SECURE === 'false'
+          ? false
+          : !hasLocalOrigin;
+const COOKIE_SAME_SITE = COOKIE_SECURE ? 'none' : 'lax';
+
+app.set('trust proxy', 1);
 
 const skills = [
     { id: 1, title: 'JavaScript', level: 'Intermediaire', offers: 14, needs: 9 },
@@ -151,16 +168,39 @@ const signToken = (user) =>
         { expiresIn: '7d' },
     );
 
+const sessionCookieOptions = {
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: COOKIE_SAME_SITE,
+    maxAge: SESSION_TTL_MS,
+    path: '/',
+};
+
+const setSessionCookie = (res, user) => {
+    res.cookie(SESSION_COOKIE_NAME, signToken(user), sessionCookieOptions);
+};
+
+const clearSessionCookie = (res) => {
+    res.clearCookie(SESSION_COOKIE_NAME, {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAME_SITE,
+        path: '/',
+    });
+};
+
 const authRequired = (req, res, next) => {
     const header = req.headers.authorization || '';
     const [scheme, token] = header.split(' ');
+    const cookieToken = req.cookies ? req.cookies[SESSION_COOKIE_NAME] : null;
+    const accessToken = scheme === 'Bearer' && token ? token : cookieToken;
 
-    if (scheme !== 'Bearer' || !token) {
+    if (!accessToken) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
     try {
-        const payload = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(accessToken, JWT_SECRET);
         req.auth = payload;
         return next();
     } catch (_error) {
@@ -168,6 +208,22 @@ const authRequired = (req, res, next) => {
     }
 };
 
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        message: 'Too many authentication attempts. Try again later.',
+    },
+});
+
+app.use(
+    helmet({
+        contentSecurityPolicy: false,
+        crossOriginEmbedderPolicy: false,
+    }),
+);
 app.use(
     cors({
         origin: (origin, callback) => {
@@ -177,15 +233,17 @@ app.use(
 
             return callback(new Error('CORS origin not allowed'));
         },
+        credentials: true,
     }),
 );
-app.use(express.json());
+app.use(cookieParser());
+app.use(express.json({ limit: '100kb' }));
 
 app.get('/', (_req, res) => {
     res.json({ status: 'ok', service: 'skillswap-local-api' });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { name, email, password } = req.body || {};
 
@@ -193,8 +251,13 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ message: 'name, email and password are required' });
         }
 
-        if (password.length < 6) {
-            return res.status(400).json({ message: 'password must contain at least 6 chars' });
+        const normalizedName = name.toString().trim();
+        if (normalizedName.length < 2 || normalizedName.length > 40) {
+            return res.status(400).json({ message: 'name must contain between 2 and 40 chars' });
+        }
+
+        if (password.length < 8) {
+            return res.status(400).json({ message: 'password must contain at least 8 chars' });
         }
 
         const normalizedEmail = email.toString().trim().toLowerCase();
@@ -203,13 +266,13 @@ app.post('/api/auth/register', async (req, res) => {
         });
 
         if (existing) {
-            return res.status(409).json({ message: 'email already used' });
+            return res.status(409).json({ message: 'unable to create account' });
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
         const user = await prisma.user.create({
             data: {
-                name: name.toString().trim(),
+                name: normalizedName,
                 email: normalizedEmail,
                 passwordHash,
                 profile: {
@@ -226,15 +289,15 @@ app.post('/api/auth/register', async (req, res) => {
             },
         });
 
-        const token = signToken(user);
-        return res.status(201).json({ token, user: toPublicUser(user) });
+        setSessionCookie(res, user);
+        return res.status(201).json({ user: toPublicUser(user) });
     } catch (error) {
         console.error('Register failed', error);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body || {};
 
@@ -259,8 +322,8 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ message: 'invalid credentials' });
         }
 
-        const token = signToken(user);
-        return res.json({ token, user: toPublicUser(user) });
+        setSessionCookie(res, user);
+        return res.json({ user: toPublicUser(user) });
     } catch (error) {
         console.error('Login failed', error);
         return res.status(500).json({ message: 'internal server error' });
@@ -288,6 +351,7 @@ app.get('/api/auth/me', authRequired, async (req, res) => {
 });
 
 app.post('/api/auth/logout', (_req, res) => {
+    clearSessionCookie(res);
     return res.json({ message: 'logout ok' });
 });
 

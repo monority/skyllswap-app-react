@@ -32,7 +32,7 @@ function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem('skillswap_token') || '');
+  const [authResolved, setAuthResolved] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [profileForm, setProfileForm] = useState({
     city: '',
@@ -60,13 +60,22 @@ function App() {
     [],
   );
 
+  const apiFetch = async (path, options = {}) => {
+    const nextOptions = {
+      ...options,
+      credentials: 'include',
+    };
+
+    return fetch(`${apiBaseUrl}${path}`, nextOptions);
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
         const [healthRes, skillsRes, matchRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/health`),
-          fetch(`${apiBaseUrl}/api/skills`),
-          fetch(`${apiBaseUrl}/api/matches/preview`),
+          apiFetch('/api/health'),
+          apiFetch('/api/skills'),
+          apiFetch('/api/matches/preview'),
         ]);
 
         if (!healthRes.ok || !skillsRes.ok || !matchRes.ok) {
@@ -91,26 +100,13 @@ function App() {
   }, [apiBaseUrl]);
 
   useEffect(() => {
-    localStorage.setItem('skillswap_token', authToken);
-  }, [authToken]);
-
-  useEffect(() => {
     const fetchMe = async () => {
-      if (!authToken) {
-        setCurrentUser(null);
-        setProfileMessage('');
-        return;
-      }
+      setAuthResolved(false);
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        });
+        const response = await apiFetch('/api/auth/me');
 
         if (!response.ok) {
-          setAuthToken('');
           setCurrentUser(null);
           return;
         }
@@ -119,15 +115,21 @@ function App() {
         setCurrentUser(data.user);
       } catch {
         setCurrentUser(null);
+      } finally {
+        setAuthResolved(true);
       }
     };
 
     fetchMe();
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+
     const fetchProfile = async () => {
-      if (!authToken) {
+      if (!currentUser) {
         setProfileForm({
           city: '',
           availability: 'flexible',
@@ -139,11 +141,7 @@ function App() {
 
       setProfileLoading(true);
       try {
-        const response = await fetch(`${apiBaseUrl}/api/profile/me`, {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        });
+        const response = await apiFetch('/api/profile/me');
 
         if (!response.ok) {
           setProfileMessage('Impossible de charger le profil.');
@@ -166,13 +164,17 @@ function App() {
     };
 
     fetchProfile();
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authResolved, currentUser]);
 
   useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+
     const fetchRealMatch = async () => {
-      if (!authToken) {
+      if (!currentUser) {
         try {
-          const previewResponse = await fetch(`${apiBaseUrl}/api/matches/preview`);
+          const previewResponse = await apiFetch('/api/matches/preview');
           if (previewResponse.ok) {
             const previewData = await previewResponse.json();
             setMatchPreview(previewData.bestMatch || null);
@@ -185,11 +187,7 @@ function App() {
       }
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/matches/me`, {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        });
+        const response = await apiFetch('/api/matches/me');
 
         const data = await response.json();
         if (!response.ok) {
@@ -210,18 +208,23 @@ function App() {
     };
 
     fetchRealMatch();
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authResolved, currentUser]);
 
   useEffect(() => {
+    if (!authResolved) {
+      return;
+    }
+
     const loadConversations = async () => {
-      if (!authToken) {
+      if (!currentUser) {
         setConversations([]);
+        setActiveConvId(null);
+        setConvMessages([]);
         return;
       }
+
       try {
-        const res = await fetch(`${apiBaseUrl}/api/conversations`, {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
+        const res = await apiFetch('/api/conversations');
         if (res.ok) {
           const data = await res.json();
           setConversations(data.conversations || []);
@@ -231,7 +234,7 @@ function App() {
       }
     };
     loadConversations();
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authResolved, currentUser]);
 
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -255,10 +258,17 @@ function App() {
       const endpoint = authMode === 'register' ? 'register' : 'login';
       const payload =
         authMode === 'register'
-          ? authForm
-          : { email: authForm.email, password: authForm.password };
+          ? {
+              name: authForm.name.trim(),
+              email: authForm.email.trim().toLowerCase(),
+              password: authForm.password,
+            }
+          : {
+              email: authForm.email.trim().toLowerCase(),
+              password: authForm.password,
+            };
 
-      const response = await fetch(`${apiBaseUrl}/api/auth/${endpoint}`, {
+      const response = await apiFetch(`/api/auth/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -272,12 +282,14 @@ function App() {
         return;
       }
 
-      setAuthToken(data.token);
       setCurrentUser(data.user);
+      setAuthResolved(true);
       setAuthMessage(authMode === 'register' ? 'Compte cree et connecte.' : 'Connexion reussie.');
       setProfileMessage('');
       setAuthForm((previous) => ({
         ...previous,
+        name: authMode === 'register' ? '' : previous.name,
+        email: payload.email,
         password: '',
       }));
     } catch {
@@ -289,13 +301,15 @@ function App() {
 
   const logout = async () => {
     try {
-      await fetch(`${apiBaseUrl}/api/auth/logout`, { method: 'POST' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // no-op
     }
 
-    setAuthToken('');
     setCurrentUser(null);
+    setConversations([]);
+    setActiveConvId(null);
+    setConvMessages([]);
     setAuthMessage('Session fermee.');
     setProfileMessage('');
   };
@@ -320,11 +334,10 @@ function App() {
         needs: parseCommaSeparated(profileForm.needsText),
       };
 
-      const response = await fetch(`${apiBaseUrl}/api/profile/me`, {
+      const response = await apiFetch('/api/profile/me', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(payload),
       });
@@ -351,13 +364,12 @@ function App() {
   };
 
   const startConversation = async (recipientId) => {
-    if (!authToken || !recipientId) return;
+    if (!currentUser || !recipientId) return;
     try {
-      const res = await fetch(`${apiBaseUrl}/api/conversations`, {
+      const res = await apiFetch('/api/conversations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ recipientId }),
       });
@@ -378,9 +390,7 @@ function App() {
 
   const loadMessages = async (convId) => {
     try {
-      const res = await fetch(`${apiBaseUrl}/api/conversations/${convId}/messages`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+      const res = await apiFetch(`/api/conversations/${convId}/messages`);
       if (res.ok) {
         const data = await res.json();
         setConvMessages(data.messages || []);
@@ -395,11 +405,10 @@ function App() {
     if (!newMessage.trim() || !activeConvId) return;
     setMessagingSending(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/conversations/${activeConvId}/messages`, {
+      const res = await apiFetch(`/api/conversations/${activeConvId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ content: newMessage.trim() }),
       });
@@ -473,6 +482,9 @@ function App() {
                   value={authForm.name}
                   onChange={(event) => onAuthInput('name', event.target.value)}
                   placeholder="Ton pseudo"
+                  autoComplete="nickname"
+                  minLength={2}
+                  maxLength={40}
                   required
                 />
               ) : null}
@@ -483,6 +495,8 @@ function App() {
                 placeholder="Email"
                 aria-label="Email"
                 type="email"
+                autoComplete="email"
+                maxLength={120}
                 required
               />
               <input
@@ -491,7 +505,8 @@ function App() {
                 placeholder="Mot de passe"
                 aria-label="Mot de passe"
                 type="password"
-                minLength={6}
+                autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+                minLength={8}
                 required
               />
               <button type="submit" disabled={authLoading}>
@@ -609,7 +624,7 @@ function App() {
               <p className="score">Compatibilite: {matchPreview.compatibility}%</p>
               <button
                 type="button"
-                disabled={!authToken || !matchPreview?.matchId}
+                disabled={!currentUser || !matchPreview?.matchId}
                 onClick={() => matchPreview?.matchId && startConversation(matchPreview.matchId)}
               >
                 Demarrer une discussion
