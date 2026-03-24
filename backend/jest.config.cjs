@@ -7,10 +7,10 @@ module.exports = {
     coverageReporters: ['text', 'lcov'],
     coverageThreshold: {
         global: {
-            statements: 35,
-            branches: 20,
-            functions: 35,
-            lines: 35,
+            statements: 60,
+            branches: 45,
+            functions: 60,
+            lines: 60,
         },
     },
 };

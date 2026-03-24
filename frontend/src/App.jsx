@@ -12,8 +12,8 @@ const baseRoadmapItems = [
   { id: 2, label: 'Creation du profil (offres / besoins)', status: 'done' },
   { id: 3, label: 'Persistance PostgreSQL + Prisma', status: 'done' },
   { id: 4, label: 'Matching reel base sur offres / besoins', status: 'in-progress' },
-  { id: 5, label: 'Messagerie basique entre utilisateurs', status: 'todo' },
-  { id: 6, label: 'Deploiement cloud (front + API + DB)', status: 'todo' },
+  { id: 5, label: 'Messagerie basique entre utilisateurs', status: 'in-progress' },
+  { id: 6, label: 'Deploiement cloud (front + API + DB)', status: 'in-progress' },
 ];
 
 const roadmapStatusLabel = {
@@ -49,6 +49,13 @@ function App() {
     email: '',
     password: '',
   });
+
+  const [conversations, setConversations] = useState([]);
+  const [activeConvId, setActiveConvId] = useState(null);
+  const [convMessages, setConvMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [messagingSending, setMessagingSending] = useState(false);
+  const [messagingLoaded, setMessagingLoaded] = useState(false);
 
   const apiBaseUrl = useMemo(
     () => import.meta.env.VITE_API_URL || 'http://localhost:4000',
@@ -211,17 +218,37 @@ function App() {
     fetchRealMatch();
   }, [apiBaseUrl, authToken]);
 
+  useEffect(() => {
+    const loadConversations = async () => {
+      if (!authToken) {
+        setConversations([]);
+        setMessagingLoaded(false);
+        return;
+      }
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/conversations`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setConversations(data.conversations || []);
+          setMessagingLoaded(true);
+        }
+      } catch {
+        // no-op
+      }
+    };
+    loadConversations();
+  }, [apiBaseUrl, authToken]);
+
   const roadmapItems = useMemo(
     () =>
-      baseRoadmapItems.map((item) =>
-        item.id === 4
-          ? {
-            ...item,
-            status: isRealMatchLive ? 'done' : 'in-progress',
-          }
-          : item,
-      ),
-    [isRealMatchLive],
+      baseRoadmapItems.map((item) => {
+        if (item.id === 4) return { ...item, status: isRealMatchLive ? 'done' : 'in-progress' };
+        if (item.id === 5) return { ...item, status: messagingLoaded ? 'done' : 'in-progress' };
+        return item;
+      }),
+    [isRealMatchLive, messagingLoaded],
   );
 
   const visibleSkills = useMemo(() => {
@@ -341,9 +368,80 @@ function App() {
     }
   };
 
+  const startConversation = async (recipientId) => {
+    if (!authToken || !recipientId) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/conversations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ recipientId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const conv = data.conversation;
+        setConversations((prev) => {
+          const exists = prev.find((c) => c.id === conv.id);
+          return exists ? prev.map((c) => (c.id === conv.id ? conv : c)) : [conv, ...prev];
+        });
+        setActiveConvId(conv.id);
+        setConvMessages(conv.messages || []);
+        setMessagingLoaded(true);
+      }
+    } catch {
+      // no-op
+    }
+  };
+
+  const loadMessages = async (convId) => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/conversations/${convId}/messages`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConvMessages(data.messages || []);
+      }
+    } catch {
+      // no-op
+    }
+  };
+
+  const sendMessage = async (event) => {
+    event.preventDefault();
+    if (!newMessage.trim() || !activeConvId) return;
+    setMessagingSending(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/conversations/${activeConvId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ content: newMessage.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConvMessages((prev) => [...prev, data.message]);
+        setNewMessage('');
+      }
+    } catch {
+      // no-op
+    } finally {
+      setMessagingSending(false);
+    }
+  };
+
   return (
     <main className="page" aria-busy={isLoading || profileLoading}>
       <section className="hero">
+        <div className="window-chrome" aria-hidden="true">
+          <span className="dot red" />
+          <span className="dot amber" />
+          <span className="dot green" />
+        </div>
         <p className="badge">SkillSwap Local</p>
         <h1>Echange tes competences, pas ton temps.</h1>
         <p className="subtitle">
@@ -528,13 +626,88 @@ function App() {
               <p>Donne: {matchPreview.gives}</p>
               <p>Recherche: {matchPreview.wants}</p>
               <p className="score">Compatibilite: {matchPreview.compatibility}%</p>
-              <button type="button">Demarrer une discussion</button>
+              <button
+                type="button"
+                disabled={!authToken || !matchPreview?.matchId}
+                onClick={() => matchPreview?.matchId && startConversation(matchPreview.matchId)}
+              >
+                Demarrer une discussion
+              </button>
             </div>
           ) : (
             <p>Match indisponible (API non joignable).</p>
           )}
           <p className="hint">{matchHintMessage || 'Calcul du matching en cours...'}</p>
         </article>
+      </section>
+
+      <section className="panel messaging-panel">
+        <h2>Messagerie</h2>
+        {!currentUser ? (
+          <p className="hint">Connecte-toi pour acceder a la messagerie.</p>
+        ) : (
+          <div className="messaging-layout">
+            <aside className="conv-list">
+              {conversations.length === 0 ? (
+                <p className="hint">Aucune conversation. Demarre un match et clique "Demarrer une discussion".</p>
+              ) : (
+                conversations.map((conv) => {
+                  const other = conv.participants.find((p) => p.id !== currentUser.id);
+                  const lastMsg = conv.messages?.[0];
+                  return (
+                    <button
+                      key={conv.id}
+                      type="button"
+                      className={`conv-item${activeConvId === conv.id ? ' active' : ' secondary'}`}
+                      onClick={() => {
+                        setActiveConvId(conv.id);
+                        loadMessages(conv.id);
+                      }}
+                    >
+                      <span className="conv-name">{other?.name || 'Utilisateur'}</span>
+                      {lastMsg && <span className="conv-preview">{lastMsg.content}</span>}
+                    </button>
+                  );
+                })
+              )}
+            </aside>
+            <div className="message-thread">
+              {activeConvId ? (
+                <>
+                  <div className="messages-area">
+                    {convMessages.length === 0 ? (
+                      <p className="hint">Aucun message. Ecris le premier !</p>
+                    ) : (
+                      convMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`msg-bubble ${msg.sender?.id === currentUser.id ? 'mine' : 'theirs'}`}
+                        >
+                          <span className="msg-content">{msg.content}</span>
+                          <span className="msg-meta">{msg.sender?.name}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <form className="message-form" onSubmit={sendMessage}>
+                    <input
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Ecris un message..."
+                      maxLength={500}
+                      required
+                    />
+                    <button type="submit" disabled={messagingSending || !newMessage.trim()}>
+                      {messagingSending ? '...' : 'Envoyer'}
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <p className="hint">Selectionne une conversation ou demarre un match.</p>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="roadmap panel">

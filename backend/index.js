@@ -4,11 +4,17 @@ const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const { Pool } = require('pg');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
 dotenv.config();
 
+const DATABASE_URL = process.env.DATABASE_URL || '';
+const pool = new Pool({ connectionString: DATABASE_URL });
+const adapter = new PrismaPg(pool);
+
 const app = express();
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter });
 const PORT = process.env.PORT || 4000;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-env';
@@ -410,6 +416,7 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
         const best = ranked[0];
 
         const bestMatch = {
+            matchId: best.candidate.id,
             pseudo: best.candidate.name,
             gives: best.givesCount > 0 ? 'Competences compatibles trouvees' : 'Aucun recoupement fort',
             wants: best.receivesCount > 0 ? 'Besoins reciproques identifies' : 'Peu de besoins reciproques',
@@ -429,6 +436,149 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
     }
 });
 
+app.post('/api/conversations', authRequired, async (req, res) => {
+    try {
+        const currentUserId = Number(req.auth.sub);
+        const { recipientId } = req.body || {};
+
+        if (!recipientId || isNaN(Number(recipientId))) {
+            return res.status(400).json({ message: 'recipientId is required' });
+        }
+
+        const rid = Number(recipientId);
+        if (rid === currentUserId) {
+            return res.status(400).json({ message: 'Cannot start a conversation with yourself' });
+        }
+
+        const recipient = await prisma.user.findUnique({ where: { id: rid } });
+        if (!recipient) {
+            return res.status(404).json({ message: 'Recipient not found' });
+        }
+
+        const existing = await prisma.conversation.findFirst({
+            where: {
+                AND: [
+                    { participants: { some: { id: currentUserId } } },
+                    { participants: { some: { id: rid } } },
+                ],
+            },
+            include: {
+                participants: { select: { id: true, name: true } },
+                messages: {
+                    orderBy: { createdAt: 'asc' },
+                    include: { sender: { select: { id: true, name: true } } },
+                },
+            },
+        });
+
+        if (existing) {
+            return res.json({ conversation: existing });
+        }
+
+        const conversation = await prisma.conversation.create({
+            data: {
+                participants: { connect: [{ id: currentUserId }, { id: rid }] },
+            },
+            include: {
+                participants: { select: { id: true, name: true } },
+                messages: true,
+            },
+        });
+
+        return res.status(201).json({ conversation });
+    } catch (error) {
+        console.error('Create conversation failed', error);
+        return res.status(500).json({ message: 'internal server error' });
+    }
+});
+
+app.get('/api/conversations', authRequired, async (req, res) => {
+    try {
+        const currentUserId = Number(req.auth.sub);
+        const conversations = await prisma.conversation.findMany({
+            where: { participants: { some: { id: currentUserId } } },
+            include: {
+                participants: { select: { id: true, name: true } },
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    include: { sender: { select: { id: true, name: true } } },
+                },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+        return res.json({ conversations });
+    } catch (error) {
+        console.error('List conversations failed', error);
+        return res.status(500).json({ message: 'internal server error' });
+    }
+});
+
+app.post('/api/conversations/:id/messages', authRequired, async (req, res) => {
+    try {
+        const currentUserId = Number(req.auth.sub);
+        const conversationId = Number(req.params.id);
+        const { content } = req.body || {};
+
+        if (!content || typeof content !== 'string' || !content.trim()) {
+            return res.status(400).json({ message: 'content is required' });
+        }
+
+        if (content.length > 500) {
+            return res.status(400).json({ message: 'message too long (max 500 chars)' });
+        }
+
+        const conversation = await prisma.conversation.findFirst({
+            where: { id: conversationId, participants: { some: { id: currentUserId } } },
+        });
+
+        if (!conversation) {
+            return res.status(404).json({ message: 'Conversation not found' });
+        }
+
+        const message = await prisma.message.create({
+            data: { content: content.trim(), senderId: currentUserId, conversationId },
+            include: { sender: { select: { id: true, name: true } } },
+        });
+
+        await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { updatedAt: new Date() },
+        });
+
+        return res.status(201).json({ message });
+    } catch (error) {
+        console.error('Send message failed', error);
+        return res.status(500).json({ message: 'internal server error' });
+    }
+});
+
+app.get('/api/conversations/:id/messages', authRequired, async (req, res) => {
+    try {
+        const currentUserId = Number(req.auth.sub);
+        const conversationId = Number(req.params.id);
+
+        const conversation = await prisma.conversation.findFirst({
+            where: { id: conversationId, participants: { some: { id: currentUserId } } },
+        });
+
+        if (!conversation) {
+            return res.status(404).json({ message: 'Conversation not found' });
+        }
+
+        const messages = await prisma.message.findMany({
+            where: { conversationId },
+            orderBy: { createdAt: 'asc' },
+            include: { sender: { select: { id: true, name: true } } },
+        });
+
+        return res.json({ messages });
+    } catch (error) {
+        console.error('Get messages failed', error);
+        return res.status(500).json({ message: 'internal server error' });
+    }
+});
+
 if (require.main === module) {
     app.listen(PORT, () => {
         if (JWT_SECRET === 'change-me-in-env') {
@@ -440,6 +590,7 @@ if (require.main === module) {
 
     const shutdown = async () => {
         await prisma.$disconnect();
+        await pool.end();
         process.exit(0);
     };
 

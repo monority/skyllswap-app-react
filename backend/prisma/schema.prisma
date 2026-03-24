@@ -4,17 +4,18 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  passwordHash String
-  profile      Profile?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             Int            @id @default(autoincrement())
+  name           String
+  email          String         @unique
+  passwordHash   String
+  profile        Profile?
+  conversations  Conversation[] @relation("ConversationParticipants")
+  sentMessages   Message[]      @relation("SentMessages")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model Profile {
@@ -27,4 +28,22 @@ model Profile {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Conversation {
+  id           Int       @id @default(autoincrement())
+  participants User[]    @relation("ConversationParticipants")
+  messages     Message[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  content        String
+  senderId       Int
+  conversationId Int
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 }

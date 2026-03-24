@@ -14,6 +14,18 @@ const mockPrisma = {
     },
 };
 
+mockPrisma.conversation = {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+};
+
+mockPrisma.message = {
+    create: jest.fn(),
+    findMany: jest.fn(),
+};
+
 jest.mock('@prisma/client', () => ({
     PrismaClient: jest.fn(() => mockPrisma),
 }));
@@ -318,5 +330,104 @@ describe('Pure helpers', () => {
         const total = countOverlap(['React', 'react', 'Node'], ['REACT', 'Vue']);
 
         expect(total).toBe(1);
+    });
+});
+
+describe('API messaging flows', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('POST /api/conversations returns 401 without token', async () => {
+        const response = await request(app)
+            .post('/api/conversations')
+            .send({ recipientId: 2 });
+
+        expect(response.status).toBe(401);
+    });
+
+    test('POST /api/conversations returns 400 when no recipientId', async () => {
+        const token = signTestToken(1);
+        const response = await request(app)
+            .post('/api/conversations')
+            .set('Authorization', `Bearer ${token}`)
+            .send({});
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe('recipientId is required');
+    });
+
+    test('POST /api/conversations returns 400 when conversing with self', async () => {
+        const token = signTestToken(1);
+        const response = await request(app)
+            .post('/api/conversations')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ recipientId: 1 });
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toContain('yourself');
+    });
+
+    test('GET /api/conversations returns list for authenticated user', async () => {
+        const token = signTestToken(1);
+        mockPrisma.conversation.findMany.mockResolvedValueOnce([
+            {
+                id: 10,
+                participants: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }],
+                messages: [{ id: 1, content: 'Salut !', sender: { id: 2, name: 'Bob' } }],
+            },
+        ]);
+
+        const response = await request(app)
+            .get('/api/conversations')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.conversations).toHaveLength(1);
+        expect(response.body.conversations[0].id).toBe(10);
+    });
+
+    test('POST /api/conversations/:id/messages returns 400 for empty content', async () => {
+        const token = signTestToken(1);
+        const response = await request(app)
+            .post('/api/conversations/10/messages')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ content: '   ' });
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe('content is required');
+    });
+
+    test('POST /api/conversations/:id/messages sends message successfully', async () => {
+        const token = signTestToken(1);
+        mockPrisma.conversation.findFirst.mockResolvedValueOnce({ id: 10 });
+        mockPrisma.message.create.mockResolvedValueOnce({
+            id: 55,
+            content: 'Hello !',
+            senderId: 1,
+            conversationId: 10,
+            sender: { id: 1, name: 'Alice' },
+            createdAt: new Date().toISOString(),
+        });
+        mockPrisma.conversation.update.mockResolvedValueOnce({ id: 10 });
+
+        const response = await request(app)
+            .post('/api/conversations/10/messages')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ content: 'Hello !' });
+
+        expect(response.status).toBe(201);
+        expect(response.body.message).toMatchObject({ id: 55, content: 'Hello !' });
+    });
+
+    test('GET /api/conversations/:id/messages returns 404 for unknown conversation', async () => {
+        const token = signTestToken(1);
+        mockPrisma.conversation.findFirst.mockResolvedValueOnce(null);
+
+        const response = await request(app)
+            .get('/api/conversations/999/messages')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(404);
     });
 });
