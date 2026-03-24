@@ -11,8 +11,8 @@ const baseRoadmapItems = [
   { id: 1, label: 'Auth utilisateur', status: 'done' },
   { id: 2, label: 'Creation du profil (offres / besoins)', status: 'done' },
   { id: 3, label: 'Persistance PostgreSQL + Prisma', status: 'done' },
-  { id: 4, label: 'Matching reel base sur offres / besoins', status: 'in-progress' },
-  { id: 5, label: 'Messagerie basique entre utilisateurs', status: 'in-progress' },
+  { id: 4, label: 'Matching reel base sur offres / besoins', status: 'done' },
+  { id: 5, label: 'Messagerie basique entre utilisateurs', status: 'done' },
   { id: 6, label: 'Deploiement cloud (front + API + DB)', status: 'done' },
 ];
 
@@ -28,7 +28,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [apiStatus, setApiStatus] = useState('checking');
   const [matchPreview, setMatchPreview] = useState(null);
-  const [isRealMatchLive, setIsRealMatchLive] = useState(false);
   const [matchHintMessage, setMatchHintMessage] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [authLoading, setAuthLoading] = useState(false);
@@ -55,7 +54,6 @@ function App() {
   const [convMessages, setConvMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [messagingSending, setMessagingSending] = useState(false);
-  const [messagingLoaded, setMessagingLoaded] = useState(false);
 
   const apiBaseUrl = useMemo(
     () => import.meta.env.VITE_API_URL || 'http://localhost:4000',
@@ -173,7 +171,6 @@ function App() {
   useEffect(() => {
     const fetchRealMatch = async () => {
       if (!authToken) {
-        setIsRealMatchLive(false);
         try {
           const previewResponse = await fetch(`${apiBaseUrl}/api/matches/preview`);
           if (previewResponse.ok) {
@@ -183,7 +180,7 @@ function App() {
         } catch {
           // no-op
         }
-        setMatchHintMessage('Etape suivante: passer du preview aleatoire a un matching reel en base.');
+        setMatchHintMessage('Connecte-toi pour activer le matching reel depuis les profils en base.');
         return;
       }
 
@@ -196,12 +193,10 @@ function App() {
 
         const data = await response.json();
         if (!response.ok) {
-          setIsRealMatchLive(false);
           setMatchHintMessage(data.message || 'Matching reel indisponible pour le moment.');
           return;
         }
 
-        setIsRealMatchLive(true);
         if (data.bestMatch) {
           setMatchPreview(data.bestMatch);
           setMatchHintMessage('Matching reel actif: resultat calcule depuis les profils en base.');
@@ -210,7 +205,6 @@ function App() {
           setMatchHintMessage(data.message || 'Aucun match reel pour le moment.');
         }
       } catch {
-        setIsRealMatchLive(false);
         setMatchHintMessage('Erreur reseau pendant le calcul du matching reel.');
       }
     };
@@ -222,7 +216,6 @@ function App() {
     const loadConversations = async () => {
       if (!authToken) {
         setConversations([]);
-        setMessagingLoaded(false);
         return;
       }
       try {
@@ -232,7 +225,6 @@ function App() {
         if (res.ok) {
           const data = await res.json();
           setConversations(data.conversations || []);
-          setMessagingLoaded(true);
         }
       } catch {
         // no-op
@@ -240,16 +232,6 @@ function App() {
     };
     loadConversations();
   }, [apiBaseUrl, authToken]);
-
-  const roadmapItems = useMemo(
-    () =>
-      baseRoadmapItems.map((item) => {
-        if (item.id === 4) return { ...item, status: isRealMatchLive ? 'done' : 'in-progress' };
-        if (item.id === 5) return { ...item, status: messagingLoaded ? 'done' : 'in-progress' };
-        return item;
-      }),
-    [isRealMatchLive, messagingLoaded],
-  );
 
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -388,7 +370,6 @@ function App() {
         });
         setActiveConvId(conv.id);
         setConvMessages(conv.messages || []);
-        setMessagingLoaded(true);
       }
     } catch {
       // no-op
@@ -713,7 +694,7 @@ function App() {
       <section className="roadmap panel">
         <h2>Roadmap guidee</h2>
         <ol className="roadmap-list">
-          {roadmapItems.map((item) => (
+          {baseRoadmapItems.map((item) => (
             <li key={item.id} className="roadmap-item">
               <span>{item.label}</span>
               <span className={`roadmap-pill ${item.status}`}>
