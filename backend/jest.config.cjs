@@ -1,5 +1,6 @@
 module.exports = {
     testEnvironment: 'node',
+    testMatch: ['**/__tests__/api.test.js'],
     clearMocks: true,
     restoreMocks: true,
     collectCoverage: true,
