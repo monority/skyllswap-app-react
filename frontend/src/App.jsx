@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 
 const parseCommaSeparated = (text) =>
@@ -54,6 +54,14 @@ function App() {
   const [convMessages, setConvMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [messagingSending, setMessagingSending] = useState(false);
+
+  const [matchFilters, setMatchFilters] = useState({ city: '', availability: '' });
+  const [topMatches, setTopMatches] = useState([]);
+  const [lastSeenMap, setLastSeenMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('skillswap_lastSeen') || '{}'); }
+    catch { return {}; }
+  });
+  const messagesEndRef = useRef(null);
 
   const apiBaseUrl = useMemo(
     () => import.meta.env.VITE_API_URL || 'http://localhost:4000',
@@ -182,22 +190,28 @@ function App() {
         } catch {
           // no-op
         }
+        setTopMatches([]);
         setMatchHintMessage('Connecte-toi pour activer le matching reel depuis les profils en base.');
         return;
       }
 
       try {
-        const response = await apiFetch('/api/matches/me');
+        const params = new URLSearchParams();
+        if (matchFilters.city) params.set('city', matchFilters.city);
+        if (matchFilters.availability) params.set('availability', matchFilters.availability);
+        const response = await apiFetch(`/api/matches/me?${params.toString()}`);
 
         const data = await response.json();
         if (!response.ok) {
           setMatchHintMessage(data.message || 'Matching reel indisponible pour le moment.');
+          setTopMatches([]);
           return;
         }
 
+        setTopMatches(data.topMatches || []);
         if (data.bestMatch) {
           setMatchPreview(data.bestMatch);
-          setMatchHintMessage('Matching reel actif: resultat calcule depuis les profils en base.');
+          setMatchHintMessage(`Matching reel actif: ${data.comparedProfiles || 0} profil(s) compares.`);
         } else {
           setMatchPreview(null);
           setMatchHintMessage(data.message || 'Aucun match reel pour le moment.');
@@ -208,7 +222,7 @@ function App() {
     };
 
     fetchRealMatch();
-  }, [apiBaseUrl, authResolved, currentUser]);
+  }, [apiBaseUrl, authResolved, currentUser, matchFilters]);
 
   useEffect(() => {
     if (!authResolved) {
@@ -236,11 +250,64 @@ function App() {
     loadConversations();
   }, [apiBaseUrl, authResolved, currentUser]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [convMessages]);
+
+  useEffect(() => {
+    if (!authResolved || !currentUser || !activeConvId) return;
+    const poll = async () => {
+      try {
+        const res = await apiFetch(`/api/conversations/${activeConvId}/messages`);
+        if (res.ok) {
+          const data = await res.json();
+          setConvMessages(data.messages || []);
+        }
+      } catch { /* no-op */ }
+    };
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [activeConvId, currentUser, authResolved, apiBaseUrl]);
+
+  useEffect(() => {
+    if (!authResolved || !currentUser) return;
+    const poll = async () => {
+      try {
+        const res = await apiFetch('/api/conversations');
+        if (res.ok) {
+          const data = await res.json();
+          setConversations(data.conversations || []);
+        }
+      } catch { /* no-op */ }
+    };
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser, authResolved, apiBaseUrl]);
+
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return skills;
     return skills.filter((skill) => skill.title.toLowerCase().includes(normalized));
   }, [skills, query]);
+
+  const markConvRead = (convId, updatedAt) => {
+    setLastSeenMap((prev) => {
+      const next = { ...prev, [String(convId)]: updatedAt };
+      localStorage.setItem('skillswap_lastSeen', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const isUnread = (conv) => {
+    if (conv.id === activeConvId) return false;
+    const lastMsg = conv.messages?.[0];
+    if (!lastMsg) return false;
+    const lastSeen = lastSeenMap[String(conv.id)];
+    if (!lastSeen) return true;
+    return new Date(conv.updatedAt) > new Date(lastSeen);
+  };
+
+  const unreadCount = conversations.filter(isUnread).length;
 
   const onAuthInput = (key, value) => {
     setAuthForm((previous) => ({
@@ -615,52 +682,97 @@ function App() {
         </article>
 
         <article className="panel">
-          <h2>Preview du meilleur match</h2>
-          {matchPreview ? (
+          <h2>Meilleurs matchs</h2>
+          {currentUser ? (
+            <div className="match-filters">
+              <input
+                value={matchFilters.city}
+                onChange={(e) => setMatchFilters((f) => ({ ...f, city: e.target.value }))}
+                placeholder="Filtrer par ville..."
+                aria-label="Ville"
+              />
+              <select
+                value={matchFilters.availability}
+                onChange={(e) => setMatchFilters((f) => ({ ...f, availability: e.target.value }))}
+                aria-label="Disponibilite"
+              >
+                <option value="">Toutes disponibilites</option>
+                <option value="matin">Matin</option>
+                <option value="apres-midi">Apres-midi</option>
+                <option value="soir">Soir</option>
+                <option value="week-end">Week-end</option>
+                <option value="flexible">Flexible</option>
+              </select>
+            </div>
+          ) : null}
+          {!currentUser && matchPreview ? (
             <div className="match-card">
               <p className="name">{matchPreview.pseudo}</p>
               <p>Donne: {matchPreview.gives}</p>
               <p>Recherche: {matchPreview.wants}</p>
               <p className="score">Compatibilite: {matchPreview.compatibility}%</p>
-              <button
-                type="button"
-                disabled={!currentUser || !matchPreview?.matchId}
-                onClick={() => matchPreview?.matchId && startConversation(matchPreview.matchId)}
-              >
-                Demarrer une discussion
-              </button>
             </div>
-          ) : (
-            <p>Match indisponible (API non joignable).</p>
-          )}
+          ) : null}
+          {currentUser && topMatches.length === 0 ? (
+            <p className="hint">Aucun profil correspondant. Elargis tes filtres ou complete ton profil.</p>
+          ) : null}
+          {currentUser ? (
+            <div className="top-matches">
+              {topMatches.map((match) => (
+                <div key={match.matchId} className="match-item">
+                  <div className="match-info">
+                    <p className="name">{match.pseudo}</p>
+                    <p>{match.city}{match.availability ? ` · ${match.availability}` : ''}</p>
+                    <p>{match.gives}</p>
+                  </div>
+                  <span className="score">{match.compatibility}%</span>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => startConversation(match.matchId)}
+                  >
+                    Contacter
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <p className="hint">{matchHintMessage || 'Calcul du matching en cours...'}</p>
         </article>
       </section>
 
       <section className="panel messaging-panel">
-        <h2>Messagerie</h2>
+        <h2>
+          Messagerie
+          {unreadCount > 0 ? <span className="badge-count">{unreadCount}</span> : null}
+        </h2>
         {!currentUser ? (
           <p className="hint">Connecte-toi pour acceder a la messagerie.</p>
         ) : (
           <div className="messaging-layout">
             <aside className="conv-list">
               {conversations.length === 0 ? (
-                <p className="hint">Aucune conversation. Demarre un match et clique "Demarrer une discussion".</p>
+                <p className="hint">Aucune conversation. Demarre un match et clique "Contacter".</p>
               ) : (
                 conversations.map((conv) => {
                   const other = conv.participants.find((p) => p.id !== currentUser.id);
                   const lastMsg = conv.messages?.[0];
+                  const unread = isUnread(conv);
                   return (
                     <button
                       key={conv.id}
                       type="button"
-                      className={`conv-item${activeConvId === conv.id ? ' active' : ' secondary'}`}
+                      className={`conv-item${activeConvId === conv.id ? ' active' : ' secondary'}${unread ? ' unread' : ''}`}
                       onClick={() => {
                         setActiveConvId(conv.id);
                         loadMessages(conv.id);
+                        markConvRead(conv.id, conv.updatedAt);
                       }}
                     >
-                      <span className="conv-name">{other?.name || 'Utilisateur'}</span>
+                      <div className="conv-item-header">
+                        <span className="conv-name">{other?.name || 'Utilisateur'}</span>
+                        {unread ? <span className="unread-dot" aria-label="Nouveau message" /> : null}
+                      </div>
                       {lastMsg && <span className="conv-preview">{lastMsg.content}</span>}
                     </button>
                   );
@@ -684,6 +796,7 @@ function App() {
                         </div>
                       ))
                     )}
+                    <div ref={messagesEndRef} />
                   </div>
                   <form className="message-form" onSubmit={sendMessage}>
                     <input

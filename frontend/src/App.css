@@ -663,3 +663,115 @@ button.secondary:active {
     max-height: 150px;
   }
 }
+
+/* --- Match filters & top-matches ------------------------------------ */
+.match-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.match-filters input,
+.match-filters select {
+  flex: 1;
+  min-width: 120px;
+  margin-top: 0;
+}
+
+.top-matches {
+  display: grid;
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.match-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.match-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-strong);
+}
+
+.match-item .match-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-item .match-info .name {
+  margin: 0 0 3px;
+  font-weight: 700;
+  color: var(--text-1);
+  font-size: 0.95rem;
+}
+
+.match-item .match-info p {
+  margin: 2px 0 0;
+  color: var(--text-2);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-item .score {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #4ade80;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.match-item button {
+  margin-top: 0;
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+}
+
+/* --- Notifications / unread badges ---------------------------------- */
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.conv-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex-shrink: 0;
+}
+
+.conv-item.unread .conv-name {
+  color: var(--text-1);
+  font-weight: 700;
+}

@@ -429,6 +429,9 @@ app.get('/api/matches/preview', (_req, res) => {
 app.get('/api/matches/me', authRequired, async (req, res) => {
     try {
         const currentUserId = Number(req.auth.sub);
+        const cityFilter = (req.query.city || '').toString().trim().toLowerCase();
+        const availFilter = (req.query.availability || '').toString().trim().toLowerCase();
+
         const currentUser = await prisma.user.findUnique({
             where: { id: currentUserId },
             include: {
@@ -440,14 +443,16 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
             return res.status(404).json({ message: 'profile not found for current user' });
         }
 
+        const profileWhere = {};
+        if (cityFilter) profileWhere.city = { contains: cityFilter, mode: 'insensitive' };
+        if (availFilter && AVAILABILITY_OPTIONS.has(availFilter)) profileWhere.availability = availFilter;
+
         const candidates = await prisma.user.findMany({
             where: {
-                id: {
-                    not: currentUserId,
-                },
-                profile: {
-                    isNot: null,
-                },
+                id: { not: currentUserId },
+                profile: Object.keys(profileWhere).length > 0
+                    ? { is: profileWhere }
+                    : { isNot: null },
             },
             include: {
                 profile: true,
@@ -459,6 +464,7 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
                 user: currentUser.name,
                 city: currentUser.profile.city,
                 bestMatch: null,
+                topMatches: [],
                 message: 'Aucun autre profil disponible pour le moment.',
             });
         }
@@ -486,19 +492,24 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
         ranked.sort((a, b) => b.compatibility - a.compatibility);
         const best = ranked[0];
 
-        const bestMatch = {
-            matchId: best.candidate.id,
-            pseudo: best.candidate.name,
-            gives: best.givesCount > 0 ? 'Competences compatibles trouvees' : 'Aucun recoupement fort',
-            wants: best.receivesCount > 0 ? 'Besoins reciproques identifies' : 'Peu de besoins reciproques',
-            city: best.candidate.profile.city,
-            compatibility: best.compatibility,
-        };
+        const toMatchItem = ({ candidate, givesCount, receivesCount, compatibility }) => ({
+            matchId: candidate.id,
+            pseudo: candidate.name,
+            gives: givesCount > 0 ? 'Competences compatibles trouvees' : 'Aucun recoupement fort',
+            wants: receivesCount > 0 ? 'Besoins reciproques identifies' : 'Peu de besoins reciproques',
+            city: candidate.profile.city,
+            availability: candidate.profile.availability,
+            compatibility,
+        });
+
+        const bestMatch = toMatchItem(best);
+        const topMatches = ranked.slice(0, 5).map(toMatchItem);
 
         return res.json({
             user: currentUser.name,
             city: currentUser.profile.city,
             bestMatch,
+            topMatches,
             comparedProfiles: candidates.length,
         });
     } catch (error) {
