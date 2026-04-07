@@ -26,11 +26,26 @@ mockPrisma.message = {
     findMany: jest.fn(),
 };
 
+mockPrisma.csrfToken = {
+    findUnique: jest.fn(),
+    upsert: jest.fn(),
+};
+
 jest.mock('@prisma/client', () => ({
     PrismaClient: jest.fn(() => mockPrisma),
 }));
 
-const { app, validateProfileUpdate, countOverlap } = require('../index');
+const { app, validateProfileUpdate, countOverlap, csrfTokens } = require('../index');
+
+beforeAll(() => {
+    [1, 2, 5, 7, 12, 21, 42, 43, 99].forEach(id => {
+        csrfTokens.set(id, { token: 'test-csrf-token', expires: Date.now() + 3600000 });
+    });
+});
+
+beforeEach(() => {
+    jest.clearAllMocks();
+});
 
 const signTestToken = (sub) =>
     jwt.sign(
@@ -131,7 +146,7 @@ describe('API business flows with Prisma mocks', () => {
         expect(response.status).toBe(201);
         expect(response.body.user).toMatchObject({
             id: 10,
-            email: 'alice@example.com',
+            name: 'Alice',
         });
         expect(response.headers['set-cookie']).toEqual(
             expect.arrayContaining([expect.stringContaining('skillswap_session=')]),
@@ -218,7 +233,7 @@ describe('API business flows with Prisma mocks', () => {
         expect(response.status).toBe(200);
         expect(response.body.user).toMatchObject({
             id: 12,
-            email: 'lea@example.com',
+            name: 'Lea',
         });
         expect(response.headers['set-cookie']).toEqual(
             expect.arrayContaining([expect.stringContaining('skillswap_session=')]),
@@ -241,12 +256,13 @@ describe('API business flows with Prisma mocks', () => {
 
         const response = await request(app)
             .get('/api/auth/me')
-            .set('Authorization', `Bearer ${token}`);
+            .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token');
 
         expect(response.status).toBe(200);
         expect(response.body.user).toMatchObject({
             id: 42,
-            email: 'diane@example.com',
+            name: 'Diane',
             profile: expect.objectContaining({ city: 'Lyon' }),
         });
     });
@@ -267,12 +283,13 @@ describe('API business flows with Prisma mocks', () => {
 
         const response = await request(app)
             .get('/api/auth/me')
-            .set('Cookie', [`skillswap_session=${token}`]);
+            .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token');
 
         expect(response.status).toBe(200);
         expect(response.body.user).toMatchObject({
             id: 43,
-            email: 'eva@example.com',
+            name: 'Eva',
         });
     });
 
@@ -282,6 +299,7 @@ describe('API business flows with Prisma mocks', () => {
         const response = await request(app)
             .put('/api/profile/me')
             .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token')
             .send({ availability: 'nuit' });
 
         expect(response.status).toBe(400);
@@ -391,10 +409,6 @@ describe('Pure helpers', () => {
 });
 
 describe('API messaging flows', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
-    });
-
     test('POST /api/conversations returns 401 without token', async () => {
         const response = await request(app)
             .post('/api/conversations')
@@ -408,6 +422,7 @@ describe('API messaging flows', () => {
         const response = await request(app)
             .post('/api/conversations')
             .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token')
             .send({});
 
         expect(response.status).toBe(400);
@@ -419,6 +434,7 @@ describe('API messaging flows', () => {
         const response = await request(app)
             .post('/api/conversations')
             .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token')
             .send({ recipientId: 1 });
 
         expect(response.status).toBe(400);
@@ -437,7 +453,8 @@ describe('API messaging flows', () => {
 
         const response = await request(app)
             .get('/api/conversations')
-            .set('Authorization', `Bearer ${token}`);
+            .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token');
 
         expect(response.status).toBe(200);
         expect(response.body.conversations).toHaveLength(1);
@@ -449,6 +466,7 @@ describe('API messaging flows', () => {
         const response = await request(app)
             .post('/api/conversations/10/messages')
             .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token')
             .send({ content: '   ' });
 
         expect(response.status).toBe(400);
@@ -471,6 +489,7 @@ describe('API messaging flows', () => {
         const response = await request(app)
             .post('/api/conversations/10/messages')
             .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token')
             .send({ content: 'Hello !' });
 
         expect(response.status).toBe(201);
@@ -483,7 +502,8 @@ describe('API messaging flows', () => {
 
         const response = await request(app)
             .get('/api/conversations/999/messages')
-            .set('Authorization', `Bearer ${token}`);
+            .set('Authorization', `Bearer ${token}`)
+            .set('x-csrf-token', 'test-csrf-token');
 
         expect(response.status).toBe(404);
     });

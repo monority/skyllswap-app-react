@@ -164,7 +164,6 @@ const countOverlap = (left, right) => {
 const toPublicUser = (user) => ({
     id: user.id,
     name: user.name,
-    email: user.email,
     profile: user.profile ? serializeProfile(user.profile) : null,
 });
 
@@ -246,27 +245,53 @@ const isValidEmail = (email) => {
 
 const csrfTokens = new Map();
 
-const generateCsrfToken = (userId) => {
+const generateCsrfToken = async (userId) => {
     const token = crypto.randomBytes(32).toString('hex');
-    csrfTokens.set(userId, { token, expires: Date.now() + 3600000 });
+    const expiresAt = new Date(Date.now() + 3600000);
+    
+    csrfTokens.set(userId, { token, expires: expiresAt.getTime() });
+    
+    try {
+        await prisma.csrfToken.upsert({
+            where: { userId },
+            update: { token, expiresAt, createdAt: new Date() },
+            create: { userId, token, expiresAt },
+        });
+    } catch (_e) {}
+    
     return token;
 };
 
-const verifyCsrfToken = (userId, token) => {
-    const stored = csrfTokens.get(userId);
-    if (!stored || stored.token !== token || stored.expires < Date.now()) {
+const verifyCsrfToken = async (userId, token) => {
+    if (!token || !userId) return false;
+    
+    const cached = csrfTokens.get(userId);
+    if (cached && cached.token === token && cached.expires > Date.now()) {
+        return true;
+    }
+    
+    if (!prisma.csrfToken) {
         return false;
     }
-    return true;
+    
+    try {
+        const stored = await prisma.csrfToken.findUnique({ where: { userId } });
+        if (stored && stored.expiresAt > new Date() && stored.token === token) {
+            csrfTokens.set(userId, { token: stored.token, expires: stored.expiresAt.getTime() });
+            return true;
+        }
+    } catch (_e) {}
+    
+    return false;
 };
 
-const csrfProtection = (req, res, next) => {
+const csrfProtection = async (req, res, next) => {
     const publicPaths = ['/api/auth/register', '/api/auth/login', '/api/health', '/api/skills', '/api/matches/preview', '/api/matches/me'];
     if (req.method === 'GET' && publicPaths.some(p => req.path.startsWith(p))) {
         return next();
     }
     const token = req.headers['x-csrf-token'];
-    if (!token || !req.auth?.sub || !verifyCsrfToken(Number(req.auth.sub), token)) {
+    if (!token || !req.auth?.sub || !(await verifyCsrfToken(Number(req.auth.sub), token))) {
         return res.status(403).json({ message: 'invalid csrf token' });
     }
     next();
@@ -762,4 +787,5 @@ module.exports = {
     app,
     validateProfileUpdate,
     countOverlap,
+    csrfTokens,
 };
