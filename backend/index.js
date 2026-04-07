@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
@@ -14,7 +15,10 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 4000;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-env';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is required. Set it in your .env file.');
+}
 const ALLOWED_ORIGINS = FRONTEND_ORIGIN.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -218,9 +222,27 @@ const authLimiter = rateLimit({
     },
 });
 
+app.use(compression());
 app.use(
     helmet({
-        contentSecurityPolicy: false,
+        hsts: {
+            maxAge: 31536000,
+            includeSubDomains: true,
+            preload: true,
+        },
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+                fontSrc: ["'self'", "https://fonts.gstatic.com"],
+                imgSrc: ["'self'", "data:"],
+                connectSrc: ["'self'", "http://localhost:4000", "ws://localhost:5173", "https://*.railway.app"],
+                frameAncestors: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+            },
+        },
         crossOriginEmbedderPolicy: false,
     }),
 );
@@ -292,7 +314,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         setSessionCookie(res, user);
         return res.status(201).json({ user: toPublicUser(user) });
     } catch (error) {
-        console.error('Register failed', error);
+        console.error('Register failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -325,7 +347,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         setSessionCookie(res, user);
         return res.json({ user: toPublicUser(user) });
     } catch (error) {
-        console.error('Login failed', error);
+        console.error('Login failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -345,7 +367,7 @@ app.get('/api/auth/me', authRequired, async (req, res) => {
 
         return res.json({ user: toPublicUser(user) });
     } catch (error) {
-        console.error('Fetch current user failed', error);
+        console.error('Fetch current user failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -367,7 +389,7 @@ app.get('/api/profile/me', authRequired, async (req, res) => {
 
         return res.json({ profile: serializeProfile(profile) });
     } catch (error) {
-        console.error('Fetch profile failed', error);
+        console.error('Fetch profile failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -393,7 +415,7 @@ app.put('/api/profile/me', authRequired, async (req, res) => {
             return res.status(404).json({ message: 'profile not found' });
         }
 
-        console.error('Update profile failed', error);
+        console.error('Update profile failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -513,7 +535,7 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
             comparedProfiles: candidates.length,
         });
     } catch (error) {
-        console.error('Fetch real match failed', error);
+        console.error('Fetch real match failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -569,7 +591,7 @@ app.post('/api/conversations', authRequired, async (req, res) => {
 
         return res.status(201).json({ conversation });
     } catch (error) {
-        console.error('Create conversation failed', error);
+        console.error('Create conversation failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -591,7 +613,7 @@ app.get('/api/conversations', authRequired, async (req, res) => {
         });
         return res.json({ conversations });
     } catch (error) {
-        console.error('List conversations failed', error);
+        console.error('List conversations failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -630,7 +652,7 @@ app.post('/api/conversations/:id/messages', authRequired, async (req, res) => {
 
         return res.status(201).json({ message });
     } catch (error) {
-        console.error('Send message failed', error);
+        console.error('Send message failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -656,17 +678,13 @@ app.get('/api/conversations/:id/messages', authRequired, async (req, res) => {
 
         return res.json({ messages });
     } catch (error) {
-        console.error('Get messages failed', error);
+        console.error('Get messages failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
 if (require.main === module) {
     app.listen(PORT, () => {
-        if (JWT_SECRET === 'change-me-in-env') {
-            console.warn('Using fallback JWT_SECRET. Set JWT_SECRET in .env for real usage.');
-        }
-
         console.log(`SkillSwap API running on port ${PORT}`);
     });
 
