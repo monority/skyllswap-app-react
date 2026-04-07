@@ -1,13 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' http://localhost:4000 ws://localhost:5173 https://*.railway.app;" />
-  <title>SkillSwap</title>
+  <meta name="description" content="SkillSwap - Echange tes competences avec des personnes proches de chez toi. Apprends nouvelles choses, partage tes savoirs." />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  
+  <meta property="og:title" content="SkillSwap - Echange tes competences" />
+  <meta property="og:description" content="Trouve des personnes proches de chez toi pour echanger vos competences. Apprends, partage, progresse ensemble." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://skillswap.app" />
+  <meta property="og:image" content="https://skillswap.app/og-image.svg" />
+  
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SkillSwap - Echange tes competences" />
+  <meta name="twitter:description" content="Trouve des personnes proches de chez toi pour echanger vos competences." />
+  
+  <link rel="canonical" href="https://skillswap.app" />
+  <title>SkillSwap - Echange tes competences</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -16,6 +30,22 @@
 </head>
 
 <body>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "SkillSwap",
+    "description": "Échange tes compétences avec des personnes proches de chez toi. Apprends nouvelles choses, partage tes savoirs.",
+    "url": "https://skillswap.app",
+    "applicationCategory": "SocialNetworking",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR"
+    }
+  }
+  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
