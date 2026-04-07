@@ -175,7 +175,7 @@ const signToken = (user) =>
             name: user.name,
         },
         JWT_SECRET,
-        { expiresIn: '7d' },
+        { expiresIn: '24h' },
     );
 
 const sessionCookieOptions = {
