@@ -70,12 +70,13 @@ function App() {
   );
 
   const apiFetch = async (path, options = {}) => {
+    const isMutation = ['POST', 'PUT', 'DELETE'].includes(options.method?.toUpperCase());
     const nextOptions = {
       ...options,
       credentials: 'include',
       headers: {
         ...options.headers,
-        ...(csrfToken && !['/api/auth/login', '/api/auth/register', '/api/health', '/api/skills', '/api/matches'].some(p => path.startsWith(p)) ? { 'x-csrf-token': csrfToken } : {}),
+        ...(csrfToken && isMutation ? { 'x-csrf-token': csrfToken } : {}),
       },
     };
 
