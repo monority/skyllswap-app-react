@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -10,6 +11,12 @@ const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 
 dotenv.config();
+
+const logger = {
+    info: (msg, meta = {}) => console.log(JSON.stringify({ level: 'info', message: msg, timestamp: new Date().toISOString(), ...meta })),
+    error: (msg, meta = {}) => console.log(JSON.stringify({ level: 'error', message: msg, timestamp: new Date().toISOString(), ...meta })),
+    warn: (msg, meta = {}) => console.log(JSON.stringify({ level: 'warn', message: msg, timestamp: new Date().toISOString(), ...meta })),
+};
 
 const app = express();
 const prisma = new PrismaClient();
@@ -222,6 +229,50 @@ const authLimiter = rateLimit({
     },
 });
 
+const globalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        message: 'Too many requests. Please slow down.',
+    },
+});
+
+const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
+const csrfTokens = new Map();
+
+const generateCsrfToken = (userId) => {
+    const token = crypto.randomBytes(32).toString('hex');
+    csrfTokens.set(userId, { token, expires: Date.now() + 3600000 });
+    return token;
+};
+
+const verifyCsrfToken = (userId, token) => {
+    const stored = csrfTokens.get(userId);
+    if (!stored || stored.token !== token || stored.expires < Date.now()) {
+        return false;
+    }
+    csrfTokens.delete(userId);
+    return true;
+};
+
+const csrfProtection = (req, res, next) => {
+    const publicPaths = ['/api/auth/register', '/api/auth/login', '/api/health', '/api/skills', '/api/matches/preview'];
+    if (publicPaths.some(p => req.path.startsWith(p))) {
+        return next();
+    }
+    const token = req.headers['x-csrf-token'];
+    if (!token || !req.auth?.sub || !verifyCsrfToken(Number(req.auth.sub), token)) {
+        return res.status(403).json({ message: 'invalid csrf token' });
+    }
+    next();
+};
+
 app.use(compression());
 app.use(
     helmet({
@@ -260,6 +311,7 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json({ limit: '100kb' }));
+app.use(globalLimiter);
 
 app.get('/', (_req, res) => {
     res.json({ status: 'ok', service: 'skillswap-local-api' });
@@ -273,6 +325,11 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             return res.status(400).json({ message: 'name, email and password are required' });
         }
 
+        const normalizedEmail = email.toString().trim().toLowerCase();
+        if (!isValidEmail(normalizedEmail)) {
+            return res.status(400).json({ message: 'invalid email format' });
+        }
+
         const normalizedName = name.toString().trim();
         if (normalizedName.length < 2 || normalizedName.length > 40) {
             return res.status(400).json({ message: 'name must contain between 2 and 40 chars' });
@@ -282,7 +339,6 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             return res.status(400).json({ message: 'password must contain at least 8 chars' });
         }
 
-        const normalizedEmail = email.toString().trim().toLowerCase();
         const existing = await prisma.user.findUnique({
             where: { email: normalizedEmail },
         });
@@ -312,9 +368,10 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         });
 
         setSessionCookie(res, user);
-        return res.status(201).json({ user: toPublicUser(user) });
+        const csrfToken = generateCsrfToken(user.id);
+        return res.status(201).json({ user: toPublicUser(user), csrfToken });
     } catch (error) {
-        console.error('Register failed:', error.message);
+        logger.error('Register failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -328,6 +385,10 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         }
 
         const normalizedEmail = email.toString().trim().toLowerCase();
+        if (!isValidEmail(normalizedEmail)) {
+            return res.status(400).json({ message: 'invalid email format' });
+        }
+
         const user = await prisma.user.findUnique({
             where: { email: normalizedEmail },
             include: {
@@ -345,14 +406,15 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         }
 
         setSessionCookie(res, user);
-        return res.json({ user: toPublicUser(user) });
+        const csrfToken = generateCsrfToken(user.id);
+        return res.json({ user: toPublicUser(user), csrfToken });
     } catch (error) {
-        console.error('Login failed:', error.message);
+        logger.error('Login failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.get('/api/auth/me', authRequired, async (req, res) => {
+app.get('/api/auth/me', authRequired, csrfProtection, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: Number(req.auth.sub) },
@@ -367,7 +429,7 @@ app.get('/api/auth/me', authRequired, async (req, res) => {
 
         return res.json({ user: toPublicUser(user) });
     } catch (error) {
-        console.error('Fetch current user failed:', error.message);
+        logger.error('Fetch current user failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -377,7 +439,7 @@ app.post('/api/auth/logout', (_req, res) => {
     return res.json({ message: 'logout ok' });
 });
 
-app.get('/api/profile/me', authRequired, async (req, res) => {
+app.get('/api/profile/me', authRequired, csrfProtection, async (req, res) => {
     try {
         const profile = await prisma.profile.findUnique({
             where: { userId: Number(req.auth.sub) },
@@ -389,12 +451,12 @@ app.get('/api/profile/me', authRequired, async (req, res) => {
 
         return res.json({ profile: serializeProfile(profile) });
     } catch (error) {
-        console.error('Fetch profile failed:', error.message);
+        logger.error('Fetch profile failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.put('/api/profile/me', authRequired, async (req, res) => {
+app.put('/api/profile/me', authRequired, csrfProtection, async (req, res) => {
     try {
         const { next, error } = validateProfileUpdate(req.body || {});
         if (error) {
@@ -415,7 +477,7 @@ app.put('/api/profile/me', authRequired, async (req, res) => {
             return res.status(404).json({ message: 'profile not found' });
         }
 
-        console.error('Update profile failed:', error.message);
+        logger.error('Update profile failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -448,7 +510,7 @@ app.get('/api/matches/preview', (_req, res) => {
     });
 });
 
-app.get('/api/matches/me', authRequired, async (req, res) => {
+app.get('/api/matches/me', authRequired, csrfProtection, async (req, res) => {
     try {
         const currentUserId = Number(req.auth.sub);
         const cityFilter = (req.query.city || '').toString().trim().toLowerCase();
@@ -535,12 +597,12 @@ app.get('/api/matches/me', authRequired, async (req, res) => {
             comparedProfiles: candidates.length,
         });
     } catch (error) {
-        console.error('Fetch real match failed:', error.message);
+        logger.error('Fetch real match failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.post('/api/conversations', authRequired, async (req, res) => {
+app.post('/api/conversations', authRequired, csrfProtection, async (req, res) => {
     try {
         const currentUserId = Number(req.auth.sub);
         const { recipientId } = req.body || {};
@@ -591,12 +653,12 @@ app.post('/api/conversations', authRequired, async (req, res) => {
 
         return res.status(201).json({ conversation });
     } catch (error) {
-        console.error('Create conversation failed:', error.message);
+        logger.error('Create conversation failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.get('/api/conversations', authRequired, async (req, res) => {
+app.get('/api/conversations', authRequired, csrfProtection, async (req, res) => {
     try {
         const currentUserId = Number(req.auth.sub);
         const conversations = await prisma.conversation.findMany({
@@ -613,12 +675,12 @@ app.get('/api/conversations', authRequired, async (req, res) => {
         });
         return res.json({ conversations });
     } catch (error) {
-        console.error('List conversations failed:', error.message);
+        logger.error('List conversations failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.post('/api/conversations/:id/messages', authRequired, async (req, res) => {
+app.post('/api/conversations/:id/messages', authRequired, csrfProtection, async (req, res) => {
     try {
         const currentUserId = Number(req.auth.sub);
         const conversationId = Number(req.params.id);
@@ -652,12 +714,12 @@ app.post('/api/conversations/:id/messages', authRequired, async (req, res) => {
 
         return res.status(201).json({ message });
     } catch (error) {
-        console.error('Send message failed:', error.message);
+        logger.error('Send message failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
 
-app.get('/api/conversations/:id/messages', authRequired, async (req, res) => {
+app.get('/api/conversations/:id/messages', authRequired, csrfProtection, async (req, res) => {
     try {
         const currentUserId = Number(req.auth.sub);
         const conversationId = Number(req.params.id);
@@ -678,7 +740,7 @@ app.get('/api/conversations/:id/messages', authRequired, async (req, res) => {
 
         return res.json({ messages });
     } catch (error) {
-        console.error('Get messages failed:', error.message);
+        logger.error('Get messages failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });

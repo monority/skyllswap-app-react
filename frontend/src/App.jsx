@@ -61,6 +61,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem('skillswap_lastSeen') || '{}'); }
     catch { return {}; }
   });
+  const [csrfToken, setCsrfToken] = useState(null);
   const messagesEndRef = useRef(null);
 
   const apiBaseUrl = useMemo(
@@ -72,6 +73,10 @@ function App() {
     const nextOptions = {
       ...options,
       credentials: 'include',
+      headers: {
+        ...options.headers,
+        ...(csrfToken && !['/api/auth/login', '/api/auth/register', '/api/health', '/api/skills', '/api/matches'].some(p => path.startsWith(p)) ? { 'x-csrf-token': csrfToken } : {}),
+      },
     };
 
     return fetch(`${apiBaseUrl}${path}`, nextOptions);
@@ -350,6 +355,7 @@ function App() {
       }
 
       setCurrentUser(data.user);
+      if (data.csrfToken) setCsrfToken(data.csrfToken);
       setAuthResolved(true);
       setAuthMessage(authMode === 'register' ? 'Compte cree et connecte.' : 'Connexion reussie.');
       setProfileMessage('');
@@ -374,6 +380,7 @@ function App() {
     }
 
     setCurrentUser(null);
+    setCsrfToken(null);
     setConversations([]);
     setActiveConvId(null);
     setConvMessages([]);
