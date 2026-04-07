@@ -257,13 +257,12 @@ const verifyCsrfToken = (userId, token) => {
     if (!stored || stored.token !== token || stored.expires < Date.now()) {
         return false;
     }
-    csrfTokens.delete(userId);
     return true;
 };
 
 const csrfProtection = (req, res, next) => {
-    const publicPaths = ['/api/auth/register', '/api/auth/login', '/api/health', '/api/skills', '/api/matches/preview'];
-    if (publicPaths.some(p => req.path.startsWith(p))) {
+    const publicPaths = ['/api/auth/register', '/api/auth/login', '/api/health', '/api/skills', '/api/matches/preview', '/api/matches/me'];
+    if (req.method === 'GET' && publicPaths.some(p => req.path.startsWith(p))) {
         return next();
     }
     const token = req.headers['x-csrf-token'];
