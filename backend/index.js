@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const http = require('http');
+const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
 
 dotenv.config();
@@ -167,7 +169,13 @@ const toPublicUser = (user) => ({
     profile: user.profile ? serializeProfile(user.profile) : null,
 });
 
-const signToken = (user) =>
+const ACCESS_TOKEN_TTL = '15m';
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const REFRESH_TOKEN_COOKIE_NAME = process.env.REFRESH_TOKEN_COOKIE_NAME || 'skillswap_refresh';
+
+let io;
+
+const signAccessToken = (user) =>
     jwt.sign(
         {
             sub: user.id,
@@ -175,7 +183,17 @@ const signToken = (user) =>
             name: user.name,
         },
         JWT_SECRET,
-        { expiresIn: '24h' },
+        { expiresIn: ACCESS_TOKEN_TTL },
+    );
+
+const signRefreshToken = (user) =>
+    jwt.sign(
+        {
+            sub: user.id,
+            type: 'refresh',
+        },
+        JWT_SECRET,
+        { expiresIn: '7d' },
     );
 
 const sessionCookieOptions = {
@@ -186,17 +204,67 @@ const sessionCookieOptions = {
     path: '/',
 };
 
-const setSessionCookie = (res, user) => {
-    res.cookie(SESSION_COOKIE_NAME, signToken(user), sessionCookieOptions);
+const refreshCookieOptions = {
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: COOKIE_SAME_SITE,
+    maxAge: REFRESH_TOKEN_TTL_MS,
+    path: '/',
 };
 
-const clearSessionCookie = (res) => {
+const setSessionCookies = async (res, user) => {
+    const accessToken = signAccessToken(user);
+    const refreshToken = signRefreshToken(user);
+
+    await prisma.refreshToken.deleteMany({
+        where: { userId: user.id },
+    });
+    await prisma.refreshToken.create({
+        data: {
+            token: refreshToken,
+            userId: user.id,
+            expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        },
+    });
+
+    res.cookie(SESSION_COOKIE_NAME, accessToken, sessionCookieOptions);
+    res.cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken, refreshCookieOptions);
+};
+
+const clearAllCookies = (res) => {
     res.clearCookie(SESSION_COOKIE_NAME, {
         httpOnly: true,
         secure: COOKIE_SECURE,
         sameSite: COOKIE_SAME_SITE,
         path: '/',
     });
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAME_SITE,
+        path: '/',
+    });
+};
+
+const verifyRefreshToken = async (token) => {
+    try {
+        const payload = jwt.verify(token, JWT_SECRET);
+        if (payload.type !== 'refresh') {
+            return null;
+        }
+
+        const storedToken = await prisma.refreshToken.findUnique({
+            where: { token },
+        });
+
+        if (!storedToken || storedToken.expiresAt < new Date()) {
+            return null;
+        }
+
+        return payload;
+    } catch {
+        return null;
+    }
 };
 
 const authRequired = (req, res, next) => {
@@ -214,7 +282,7 @@ const authRequired = (req, res, next) => {
         req.auth = payload;
         return next();
     } catch (_error) {
-        return res.status(401).json({ message: 'Invalid or expired token' });
+        return res.status(401).json({ message: 'Invalid or expired token', code: 'TOKEN_EXPIRED' });
     }
 };
 
@@ -243,13 +311,9 @@ const isValidEmail = (email) => {
     return emailRegex.test(email);
 };
 
-const csrfTokens = new Map();
-
 const generateCsrfToken = async (userId) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 3600000);
-    
-    csrfTokens.set(userId, { token, expires: expiresAt.getTime() });
     
     try {
         await prisma.csrfToken.upsert({
@@ -265,19 +329,9 @@ const generateCsrfToken = async (userId) => {
 const verifyCsrfToken = async (userId, token) => {
     if (!token || !userId) return false;
     
-    const cached = csrfTokens.get(userId);
-    if (cached && cached.token === token && cached.expires > Date.now()) {
-        return true;
-    }
-    
-    if (!prisma.csrfToken) {
-        return false;
-    }
-    
     try {
         const stored = await prisma.csrfToken.findUnique({ where: { userId } });
         if (stored && stored.expiresAt > new Date() && stored.token === token) {
-            csrfTokens.set(userId, { token: stored.token, expires: stored.expiresAt.getTime() });
             return true;
         }
     } catch (_e) {}
@@ -391,8 +445,8 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             },
         });
 
-        setSessionCookie(res, user);
-        const csrfToken = generateCsrfToken(user.id);
+        await setSessionCookies(res, user);
+        const csrfToken = await generateCsrfToken(user.id);
         return res.status(201).json({ user: toPublicUser(user), csrfToken });
     } catch (error) {
         logger.error('Register failed:', error.message);
@@ -429,11 +483,49 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
             return res.status(401).json({ message: 'invalid credentials' });
         }
 
-        setSessionCookie(res, user);
-        const csrfToken = generateCsrfToken(user.id);
+        await setSessionCookies(res, user);
+        const csrfToken = await generateCsrfToken(user.id);
         return res.json({ user: toPublicUser(user), csrfToken });
     } catch (error) {
         logger.error('Login failed:', error.message);
+        return res.status(500).json({ message: 'internal server error' });
+    }
+});
+
+app.post('/api/auth/refresh', async (req, res) => {
+    try {
+        const refreshToken = req.cookies ? req.cookies[REFRESH_TOKEN_COOKIE_NAME] : null;
+
+        if (!refreshToken) {
+            return res.status(401).json({ message: 'Refresh token required' });
+        }
+
+        const payload = await verifyRefreshToken(refreshToken);
+        if (!payload) {
+            clearAllCookies(res);
+            return res.status(401).json({ message: 'Invalid or expired refresh token' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: Number(payload.sub) },
+            include: { profile: true },
+        });
+
+        if (!user) {
+            clearAllCookies(res);
+            return res.status(401).json({ message: 'User not found' });
+        }
+
+        await prisma.refreshToken.deleteMany({
+            where: { userId: user.id },
+        });
+
+        await setSessionCookies(res, user);
+        const csrfToken = await generateCsrfToken(user.id);
+
+        return res.json({ user: toPublicUser(user), csrfToken });
+    } catch (error) {
+        logger.error('Refresh failed:', error.message);
         return res.status(500).json({ message: 'internal server error' });
     }
 });
@@ -458,8 +550,17 @@ app.get('/api/auth/me', authRequired, csrfProtection, async (req, res) => {
     }
 });
 
-app.post('/api/auth/logout', (_req, res) => {
-    clearSessionCookie(res);
+app.post('/api/auth/logout', async (req, res) => {
+    try {
+        const refreshToken = req.cookies ? req.cookies[REFRESH_TOKEN_COOKIE_NAME] : null;
+        if (refreshToken) {
+            await prisma.refreshToken.deleteMany({
+                where: { token: refreshToken },
+            }).catch(() => {});
+        }
+    } catch (_e) {}
+
+    clearAllCookies(res);
     return res.json({ message: 'logout ok' });
 });
 
@@ -736,6 +837,19 @@ app.post('/api/conversations/:id/messages', authRequired, csrfProtection, async 
             data: { updatedAt: new Date() },
         });
 
+        if (io) {
+            io.to(`conv:${conversationId}`).emit('newMessage', { message, conversationId });
+            const participants = await prisma.conversation.findUnique({
+                where: { id: conversationId },
+                include: { participants: { select: { id: true } } },
+            });
+            if (participants) {
+                participants.participants.forEach((p) => {
+                    io.to(`user:${p.id}`).emit('conversationUpdated', { conversationId });
+                });
+            }
+        }
+
         return res.status(201).json({ message });
     } catch (error) {
         logger.error('Send message failed:', error.message);
@@ -769,8 +883,60 @@ app.get('/api/conversations/:id/messages', authRequired, csrfProtection, async (
     }
 });
 
+const initSocketIO = (server) => {
+    io = new Server(server, {
+        cors: {
+            origin: ALLOWED_ORIGINS,
+            credentials: true,
+        },
+        pingTimeout: 60000,
+        pingInterval: 25000,
+    });
+
+    io.use(async (socket, next) => {
+        try {
+            const cookies = cookieParser.JSONCookie(socket.handshake.headers.cookie || '');
+            const sessionToken = cookies[SESSION_COOKIE_NAME];
+
+            if (!sessionToken) {
+                return next(new Error('Authentication required'));
+            }
+
+            const payload = jwt.verify(sessionToken, JWT_SECRET);
+            socket.userId = Number(payload.sub);
+            socket.user = payload;
+            next();
+        } catch (error) {
+            next(new Error('Invalid token'));
+        }
+    });
+
+    io.on('connection', (socket) => {
+        logger.info('User connected', { userId: socket.userId });
+
+        socket.join(`user:${socket.userId}`);
+
+        socket.on('joinConversation', (conversationId) => {
+            socket.join(`conv:${conversationId}`);
+            logger.info('User joined conversation', { userId: socket.userId, conversationId });
+        });
+
+        socket.on('leaveConversation', (conversationId) => {
+            socket.leave(`conv:${conversationId}`);
+        });
+
+        socket.on('disconnect', () => {
+            logger.info('User disconnected', { userId: socket.userId });
+        });
+    });
+
+    return io;
+};
+
 if (require.main === module) {
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    initSocketIO(server);
+    server.listen(PORT, () => {
         console.log(`SkillSwap API running on port ${PORT}`);
     });
 
@@ -787,5 +953,11 @@ module.exports = {
     app,
     validateProfileUpdate,
     countOverlap,
-    csrfTokens,
+    initSocketIO,
+};
+
+module.exports = {
+    app,
+    validateProfileUpdate,
+    countOverlap,
 };
