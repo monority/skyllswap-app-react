@@ -9,7 +9,7 @@ describe('useApi', () => {
 
   describe('apiFetch', () => {
     it('returns a function', () => {
-      global.fetch = vi.fn().mockResolvedValueOnce({
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({}),
       });
@@ -20,7 +20,7 @@ describe('useApi', () => {
     });
 
     it('apiFetch returns Response object', async () => {
-      global.fetch = vi.fn().mockResolvedValueOnce({
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         status: 200,
       });
@@ -33,7 +33,7 @@ describe('useApi', () => {
     });
 
     it('apiFetch handles errors', async () => {
-      global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'));
+      globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() => useApi());
 
@@ -48,8 +48,8 @@ describe('useApiInitialization', () => {
   });
 
   it('initializes with loading state', () => {
-    global.fetch = vi.fn().mockImplementation(
-      () => new Promise(() => {})
+    globalThis.fetch = vi.fn().mockImplementation(
+      () => new Promise(() => { })
     );
 
     const { result } = renderHook(() => useApiInitialization());
@@ -58,8 +58,8 @@ describe('useApiInitialization', () => {
   });
 
   it('initializes with empty skills array', () => {
-    global.fetch = vi.fn().mockImplementation(
-      () => new Promise(() => {})
+    globalThis.fetch = vi.fn().mockImplementation(
+      () => new Promise(() => { })
     );
 
     const { result } = renderHook(() => useApiInitialization());
@@ -68,12 +68,12 @@ describe('useApiInitialization', () => {
   });
 
   it('sets apiStatus to checking initially', () => {
-    global.fetch = vi.fn().mockImplementation(
-      () => new Promise(() => {})
+    globalThis.fetch = vi.fn().mockImplementation(
+      () => new Promise(() => { })
     );
 
     const { result } = renderHook(() => useApiInitialization());
 
     expect(result.current.apiStatus).toBe('checking');
   });
-});
+});;

@@ -5,3 +5,4 @@ export * from './Skills';
 export * from './Matches';
 export * from './Messaging';
 export * from './Layout';
+export * from './Seo';

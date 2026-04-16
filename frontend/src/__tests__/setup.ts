@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// Use globalThis for fetch (fetch is already declared globally in DOM types)
 globalThis.fetch = vi.fn();
 
 Object.defineProperty(window, 'localStorage', {

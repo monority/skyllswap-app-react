@@ -18,11 +18,11 @@ interface UseRealtimeReturn {
   joinConversation: (conversationId: number) => void;
   leaveConversation: (conversationId: number) => void;
   onNewMessage: (
-    callback: (data: { message: unknown; conversationId: number }) => void
-  ) => void;
+    callback: (data: { message?: { content?: string; sender?: { name?: string } }; conversationId?: number }) => void
+  ) => () => void;
   onConversationUpdated: (
     callback: (data: { conversationId: number }) => void
-  ) => void;
+  ) => () => void;
   disconnect: () => void;
 }
 
@@ -36,7 +36,7 @@ export const useRealtime = ({
   const socketRef = useRef<SocketIO | null>(null);
   const listenersRef = useRef<{
     newMessage: Set<
-      (data: { message: unknown; conversationId: number }) => void
+      (data: { message?: { content?: string; sender?: { name?: string } }; conversationId?: number }) => void
     >;
     conversationUpdated: Set<(data: { conversationId: number }) => void>;
   }>({
@@ -71,7 +71,7 @@ export const useRealtime = ({
     });
 
     socket.on('newMessage', (data: unknown) => {
-      const typedData = data as { message: unknown; conversationId: number };
+      const typedData = data as { message?: { content?: string; sender?: { name?: string } }; conversationId?: number };
       listenersRef.current.newMessage.forEach(callback => callback(typedData));
     });
 
@@ -101,9 +101,12 @@ export const useRealtime = ({
 
   const onNewMessage = useCallback(
     (
-      callback: (data: { message: unknown; conversationId: number }) => void
+      callback: (data: { message?: { content?: string; sender?: { name?: string } }; conversationId?: number }) => void
     ) => {
       listenersRef.current.newMessage.add(callback);
+      return () => {
+        listenersRef.current.newMessage.delete(callback);
+      };
     },
     []
   );
@@ -111,6 +114,9 @@ export const useRealtime = ({
   const onConversationUpdated = useCallback(
     (callback: (data: { conversationId: number }) => void) => {
       listenersRef.current.conversationUpdated.add(callback);
+      return () => {
+        listenersRef.current.conversationUpdated.delete(callback);
+      };
     },
     []
   );

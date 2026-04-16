@@ -25,7 +25,10 @@ export function useNotifications({
   const notificationsRef = useRef(notifications);
   notificationsRef.current = notifications;
 
-  const { isConnected, onNewMessage } = useRealtime();
+  const { isConnected, onNewMessage } = useRealtime({
+    userId,
+    enabled,
+  });
 
   const addNotification = useCallback(
     (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
@@ -89,7 +92,7 @@ export function useNotifications({
   useEffect(() => {
     if (!enabled || !userId || !onNewMessage) return;
 
-    const unsubscribe = onNewMessage((data: { message?: { content?: string; sender?: { name?: string } }; conversationId?: number }) => {
+    const unsubscribe = onNewMessage((data) => {
       addNotification({
         type: 'message',
         title: 'Nouveau message',
