@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
+import io from 'socket.io-client';
 
 interface SocketIO {
   on: (event: string, callback: (...args: unknown[]) => void) => void;
@@ -26,8 +27,6 @@ interface UseRealtimeReturn {
   disconnect: () => void;
 }
 
-declare const io: (url: string, options?: Record<string, unknown>) => SocketIO;
-
 export const useRealtime = ({
   userId,
   enabled = true,
@@ -51,12 +50,11 @@ export const useRealtime = ({
 
     const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
     const socket = io(socketUrl, {
-      withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    });
+    } as any);
 
     socket.on('connect', () => {
       setIsConnected(true);
