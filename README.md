@@ -1,4 +1,4 @@
-# SkillSwap (MVP guide)
+# SkillSwap
 
 Premier jet full-stack pour portfolio.
 
@@ -54,12 +54,6 @@ CI:
 - `POST /api/auth/logout`
 - `GET /api/profile/me` (Bearer token)
 - `PUT /api/profile/me` (Bearer token)
-
-## Etape suivante (guidee)
-
-- Deployer le frontend sur Vercel
-- Deployer l'API sur Render
-- Connecter l'API a PostgreSQL Neon
 
 ## Deploiement cloud (front + API + DB)
 

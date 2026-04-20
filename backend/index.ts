@@ -509,7 +509,7 @@ app.use(express.json({ limit: '100kb' }));
 app.use(globalLimiter);
 
 app.get('/', (_req, res) => {
-  res.json({ status: 'ok', service: 'skillswap-local-api' });
+  res.json({ status: 'ok', service: 'skillswap-api' });
 });
 
 app.post('/api/auth/register', authLimiter, async (req, res) => {
@@ -782,7 +782,7 @@ app.put(
 );
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'skillswap-local-api' });
+  res.json({ status: 'ok', service: 'skillswap-api' });
 });
 
 app.get('/api/skills', (req, res) => {
