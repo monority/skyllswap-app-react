@@ -24,6 +24,24 @@ import type {
 
 dotenv.config();
 
+// Vérification des variables d'environnement requises
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ Variables d\'environnement manquantes:', missingVars.join(', '));
+  console.error('Pour résoudre ce problème sur Render:');
+  console.error('1. Allez sur le dashboard Render');
+  console.error('2. Sélectionnez votre service "skillswap-api"');
+  console.error('3. Cliquez sur "Environment" dans le menu de gauche');
+  console.error('4. Ajoutez les variables manquantes');
+  process.exit(1);
+}
+
+console.log('✅ Variables d\'environnement vérifiées');
+console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('FRONTEND_ORIGIN:', process.env.FRONTEND_ORIGIN || 'http://localhost:5173');
+
 interface Logger {
   info: (msg: string, meta?: Record<string, unknown>) => void;
   error: (msg: string, meta?: Record<string, unknown>) => void;
@@ -707,7 +725,7 @@ app.post('/api/auth/logout', async (req, res) => {
         .deleteMany({
           where: { token: refreshToken },
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   } catch {
     // Silently handle errors
@@ -863,7 +881,7 @@ app.get(
       const totalDesired = Math.max(
         1,
         (currentUser.profile.offers || []).length +
-          (currentUser.profile.needs || []).length
+        (currentUser.profile.needs || []).length
       );
 
       const ranked = candidates.map((candidate: typeof candidates[number]) => {
