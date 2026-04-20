@@ -35,13 +35,7 @@ jest.mock('@prisma/client', () => ({
     PrismaClient: jest.fn(() => mockPrisma),
 }));
 
-const { app, validateProfileUpdate, countOverlap, csrfTokens } = require('../index');
-
-beforeAll(() => {
-    [1, 2, 5, 7, 12, 21, 42, 43, 99].forEach(id => {
-        csrfTokens.set(id, { token: 'test-csrf-token', expires: Date.now() + 3600000 });
-    });
-});
+const { app, validateProfileUpdate, countOverlap } = require('../index');
 
 beforeEach(() => {
     jest.clearAllMocks();
