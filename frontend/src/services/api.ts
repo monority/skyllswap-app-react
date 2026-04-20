@@ -27,7 +27,7 @@ class ApiService {
       ...(options.headers as Record<string, string>),
     };
 
-    if (isMutation && this.csrfToken) {
+    if (this.csrfToken) {
       headers['x-csrf-token'] = this.csrfToken;
     }
 
