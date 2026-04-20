@@ -62,6 +62,7 @@ const logger: Logger = {
 
 const app = express();
 const prisma = new PrismaClient();
+const csrfTokens = new Map<number, { token: string; expires: number }>();
 const PORT = process.env.PORT || 4000;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -1222,6 +1223,8 @@ const startServer = async () => {
   process.on('SIGTERM', shutdown);
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
-export { app, validateProfileUpdate, countOverlap, initSocketIO };
+export { app, validateProfileUpdate, countOverlap, initSocketIO, csrfTokens };
