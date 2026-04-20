@@ -54,7 +54,7 @@ export const useRealtime = ({
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    } as any);
+    });
 
     socket.on('connect', () => {
       setIsConnected(true);

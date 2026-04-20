@@ -18,11 +18,6 @@ class ApiService {
   }
 
   async request(path: string, options: RequestInit = {}): Promise<Response> {
-    const method = options.method?.toUpperCase();
-    const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(
-      method || ''
-    );
-
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
     };
