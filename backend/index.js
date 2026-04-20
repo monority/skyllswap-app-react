@@ -42,7 +42,7 @@ const COOKIE_SECURE =
         : process.env.COOKIE_SECURE === 'false'
             ? false
             : !hasLocalOrigin;
-const COOKIE_SAME_SITE = COOKIE_SECURE ? 'none' : 'lax';
+const COOKIE_SAME_SITE = 'lax';
 
 app.set('trust proxy', 1);
 
