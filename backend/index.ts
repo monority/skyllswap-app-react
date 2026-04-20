@@ -1225,6 +1225,83 @@ const initSocketIO = (server: http.Server): Server => {
   return io;
 };
 
+// Endpoint de diagnostic pour vérifier la connexion à la base de données
+app.get('/api/diagnose/db', async (_req, res) => {
+  try {
+    console.log('=== Diagnostic de la base de données ===');
+
+    const envInfo = {
+      NODE_ENV: process.env.NODE_ENV || 'non défini',
+      DATABASE_URL: process.env.DATABASE_URL ? 'DÉFINIE' : 'NON DÉFINIE',
+      DATABASE_URL_MASKED: process.env.DATABASE_URL
+        ? process.env.DATABASE_URL.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@')
+        : null,
+      JWT_SECRET: process.env.JWT_SECRET ? 'DÉFINIE' : 'NON DÉFINIE',
+      FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || 'non défini'
+    };
+
+    console.log('Variables d\'environnement:', envInfo);
+
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'DATABASE_URL non définie',
+        env: envInfo,
+        solution: 'Configurez DATABASE_URL sur Render: Dashboard → Environment'
+      });
+    }
+
+    // Tester la connexion
+    console.log('🔗 Test de connexion à la base de données...');
+    await prisma.$connect();
+    console.log('✅ Connexion réussie');
+
+    // Tester une requête simple
+    const testResult = await prisma.$queryRaw`SELECT 1 as test`;
+    console.log('✅ Requête test réussie');
+
+    // Vérifier les migrations
+    let migrations = [];
+    try {
+      migrations = await prisma.$queryRaw`SELECT * FROM _prisma_migrations ORDER BY finished_at DESC`;
+      console.log(`📊 Migrations trouvées: ${migrations.length}`);
+    } catch (e) {
+      console.log('ℹ️ Table _prisma_migrations non trouvée');
+    }
+
+    await prisma.$disconnect();
+
+    return res.json({
+      status: 'success',
+      message: 'Base de données accessible',
+      env: envInfo,
+      testQuery: testResult[0],
+      migrationsCount: migrations.length,
+      migrations: migrations.slice(0, 5) // Premières 5 migrations
+    });
+
+  } catch (error: any) {
+    console.error('❌ Erreur de diagnostic:', error.message);
+    console.error('Code d\'erreur:', error.code);
+
+    return res.status(500).json({
+      status: 'error',
+      message: error.message,
+      code: error.code,
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'non défini',
+        DATABASE_URL: process.env.DATABASE_URL ? 'DÉFINIE' : 'NON DÉFINIE'
+      },
+      commonSolutions: [
+        'Vérifiez que DATABASE_URL est correcte sur Render',
+        'Vérifiez que la base de données PostgreSQL est créée',
+        'Vérifiez que le service de base de données est démarré',
+        'Vérifiez les permissions de l\'utilisateur de la base de données'
+      ]
+    });
+  }
+});
+
 const startServer = async () => {
   const server = http.createServer(app);
   initSocketIO(server);
