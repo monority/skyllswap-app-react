@@ -69,23 +69,14 @@ Stack de production recommandee:
 - API: Railway
 - DB: Neon PostgreSQL
 
-### 1. Variables Railway (backend)
+### 1. Backend sur Render (recommandé) ou Railway
 
-Configurer ces variables dans le service Railway:
+**Render (gratuit):**
+- Créer service "Web Service"
+- Connecter le repo GitHub
+- Configurer les variables d'environnement dans le dashboard Render
 
-- `DATABASE_URL`: URL Neon (non pooler)
-- `JWT_SECRET`: secret long et aleatoire
-- `FRONTEND_ORIGIN`: URL Vercel du frontend (possible multi-origines, separees par virgule)
-- `PORT`: laisse Railway gerer ou garder `4000`
-
-Exemple multi-origines:
-
-```env
-FRONTEND_ORIGIN=https://skillswap.vercel.app,https://skillswap-git-main-xxx.vercel.app
-```
-
-Le backend applique automatiquement les migrations Prisma au demarrage via:
-
+**Railway:**
 - `npm run prisma:migrate:deploy && npm start`
 
 ### 2. Variables Vercel (frontend)
