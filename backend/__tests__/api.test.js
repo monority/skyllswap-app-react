@@ -63,7 +63,7 @@ describe('API basic behavior', () => {
         expect(response.status).toBe(200);
         expect(response.body).toMatchObject({
             status: 'ok',
-            service: 'skillswap-local-api',
+            service: 'skillswap-api',
         });
     });
 
