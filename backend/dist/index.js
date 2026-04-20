@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.initSocketIO = exports.countOverlap = exports.validateProfileUpdate = exports.app = void 0;
+exports.csrfTokens = exports.initSocketIO = exports.countOverlap = exports.validateProfileUpdate = exports.app = void 0;
 const express_1 = __importDefault(require("express"));
 const crypto_1 = __importDefault(require("crypto"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
@@ -41,6 +41,8 @@ const logger = {
 const app = (0, express_1.default)();
 exports.app = app;
 const prisma = new client_1.PrismaClient();
+const csrfTokens = new Map();
+exports.csrfTokens = csrfTokens;
 const PORT = process.env.PORT || 4000;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -944,5 +946,7 @@ const startServer = async () => {
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
 };
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
 //# sourceMappingURL=index.js.map
