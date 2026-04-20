@@ -1302,6 +1302,50 @@ app.get('/api/diagnose/db', async (_req, res) => {
   }
 });
 
+// Endpoint de debug pour voir toutes les variables d'environnement
+app.get('/api/debug/env', (_req, res) => {
+  const allEnvVars = process.env;
+  const maskedEnvVars: Record<string, string> = {};
+
+  // Masquer les valeurs sensibles
+  for (const [key, value] of Object.entries(allEnvVars)) {
+    if (!value) {
+      maskedEnvVars[key] = 'NON DÉFINIE';
+    } else if (key.includes('URL') || key.includes('URI')) {
+      // Masquer les mots de passe dans les URLs
+      maskedEnvVars[key] = value.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
+    } else if (key.includes('SECRET') || key.includes('KEY') || key.includes('PASSWORD')) {
+      maskedEnvVars[key] = '***' + value.slice(-4); // Montrer seulement les 4 derniers caractères
+    } else {
+      maskedEnvVars[key] = value;
+    }
+  }
+
+  // Log dans la console pour les logs Render
+  console.log('=== DEBUG Variables d\'environnement ===');
+  console.log('DATABASE_URL présente:', !!process.env.DATABASE_URL);
+  console.log('JWT_SECRET présente:', !!process.env.JWT_SECRET);
+  console.log('FRONTEND_ORIGIN présente:', !!process.env.FRONTEND_ORIGIN);
+  console.log('NODE_ENV:', process.env.NODE_ENV || 'non défini');
+
+  if (process.env.DATABASE_URL) {
+    console.log('DATABASE_URL (masquée):', process.env.DATABASE_URL.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@'));
+  }
+
+  return res.json({
+    message: 'Variables d\'environnement (valeurs sensibles masquées)',
+    env: maskedEnvVars,
+    criticalVars: {
+      DATABASE_URL: process.env.DATABASE_URL ? 'PRÉSENTE' : 'ABSENTE',
+      JWT_SECRET: process.env.JWT_SECRET ? 'PRÉSENTE' : 'ABSENTE',
+      FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || 'ABSENTE',
+      NODE_ENV: process.env.NODE_ENV || 'ABSENTE',
+      PORT: process.env.PORT || '4000 (par défaut)'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 const startServer = async () => {
   const server = http.createServer(app);
   initSocketIO(server);
