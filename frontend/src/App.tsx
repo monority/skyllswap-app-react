@@ -13,7 +13,6 @@ import {
   ProfileForm,
   SkillsList,
   Hero,
-  Roadmap,
   Button,
   Seo,
 } from './components';
@@ -135,97 +134,95 @@ function App() {
     <>
       <Seo />
       <main className="page" aria-busy={isLoading || profileLoading}>
-      <Hero apiStatus={apiStatus} />
+        <Hero apiStatus={apiStatus} />
 
-      <section className="grid">
-        <article className="panel">
-          <h2>Compte</h2>
+        <section className="grid">
+          <article className="panel">
+            <h2>Compte</h2>
 
-          {currentUser ? (
-            <div className="auth-user">
-              <p className="name">Connecte: {currentUser.name}</p>
-              <p>{currentUser.email}</p>
-              <Button onClick={handleLogout}>Se deconnecter</Button>
-            </div>
-          ) : (
-            <AuthForm
-              onLogin={handleLogin}
-              onRegister={handleRegister}
-              loading={false}
+            {currentUser ? (
+              <div className="auth-user">
+                <p className="name">Connecte: {currentUser.name}</p>
+                <p>{currentUser.email}</p>
+                <Button onClick={handleLogout}>Se deconnecter</Button>
+              </div>
+            ) : (
+              <AuthForm
+                onLogin={handleLogin}
+                onRegister={handleRegister}
+                loading={false}
+              />
+            )}
+
+            {authMessage ? (
+              <p className="hint" role="status">
+                {authMessage}
+              </p>
+            ) : null}
+          </article>
+
+          <article className="panel">
+            <h2>Mon profil</h2>
+            <ProfileForm
+              form={profileForm}
+              onUpdateField={updateProfileField}
+              onSave={saveProfile}
+              loading={profileLoading}
+              saving={profileSaving}
+              message={profileMessage}
             />
-          )}
+          </article>
 
-          {authMessage ? (
-            <p className="hint" role="status">
-              {authMessage}
-            </p>
-          ) : null}
-        </article>
+          <article className="panel">
+            <h2>Recherche de competences</h2>
+            <SkillsList
+              skills={visibleSkills}
+              query={query}
+              onQueryChange={setQuery}
+              isLoading={isLoading}
+            />
+          </article>
 
-        <article className="panel">
-          <h2>Mon profil</h2>
-          <ProfileForm
-            form={profileForm}
-            onUpdateField={updateProfileField}
-            onSave={saveProfile}
-            loading={profileLoading}
-            saving={profileSaving}
-            message={profileMessage}
-          />
-        </article>
+          <article className="panel">
+            <h2>Meilleurs matchs</h2>
+            <Suspense fallback={<SectionLoader />}>
+              <MatchSection
+                currentUser={currentUser}
+                matchPreview={matchPreview}
+                topMatches={topMatches}
+                matchFilters={matchFilters}
+                onFiltersChange={handleFiltersChange}
+                onStartConversation={startConversation}
+                hintMessage={matchHintMessage}
+              />
+            </Suspense>
+          </article>
+        </section>
 
-        <article className="panel">
-          <h2>Recherche de competences</h2>
-          <SkillsList
-            skills={visibleSkills}
-            query={query}
-            onQueryChange={setQuery}
-            isLoading={isLoading}
-          />
-        </article>
-
-        <article className="panel">
-          <h2>Meilleurs matchs</h2>
+        <section className="panel messaging-panel">
+          <h2>
+            Messagerie
+            {unreadCount > 0 ? (
+              <span className="badge-count">{unreadCount}</span>
+            ) : null}
+          </h2>
           <Suspense fallback={<SectionLoader />}>
-            <MatchSection
+            <MessagingPanel
               currentUser={currentUser}
-              matchPreview={matchPreview}
-              topMatches={topMatches}
-              matchFilters={matchFilters}
-              onFiltersChange={handleFiltersChange}
-              onStartConversation={startConversation}
-              hintMessage={matchHintMessage}
+              conversations={conversations}
+              activeConvId={activeConvId}
+              onSelectConversation={selectConversation}
+              messages={convMessages}
+              newMessage={newMessage}
+              onNewMessageChange={setNewMessage}
+              onSendMessage={sendMessage}
+              messagesEndRef={messagesEndRef}
+              isUnread={isUnread}
+              sending={messagingSending}
             />
           </Suspense>
-        </article>
-      </section>
-
-      <section className="panel messaging-panel">
-        <h2>
-          Messagerie
-          {unreadCount > 0 ? (
-            <span className="badge-count">{unreadCount}</span>
-          ) : null}
-        </h2>
-        <Suspense fallback={<SectionLoader />}>
-          <MessagingPanel
-            currentUser={currentUser}
-            conversations={conversations}
-            activeConvId={activeConvId}
-            onSelectConversation={selectConversation}
-            messages={convMessages}
-            newMessage={newMessage}
-            onNewMessageChange={setNewMessage}
-            onSendMessage={sendMessage}
-            messagesEndRef={messagesEndRef}
-            isUnread={isUnread}
-            sending={messagingSending}
-          />
-        </Suspense>
-      </section>
-
-      <Roadmap />
-    </main>
+        </section>
+      </main>
     </>
   );
 }
