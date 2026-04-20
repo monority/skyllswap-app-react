@@ -1,4 +1,4 @@
-# SkillSwap Local (MVP guide)
+# SkillSwap (MVP guide)
 
 Premier jet full-stack pour portfolio.
 
@@ -58,7 +58,7 @@ CI:
 ## Etape suivante (guidee)
 
 - Deployer le frontend sur Vercel
-- Deployer l'API sur Railway
+- Deployer l'API sur Render
 - Connecter l'API a PostgreSQL Neon
 
 ## Deploiement cloud (front + API + DB)
@@ -66,29 +66,27 @@ CI:
 Stack de production recommandee:
 
 - Frontend: Vercel
-- API: Railway
+- API: Render
 - DB: Neon PostgreSQL
 
-### 1. Backend sur Render (recommandé) ou Railway
+### 1. Backend sur Render
 
 **Render (gratuit):**
 - Créer service "Web Service"
 - Connecter le repo GitHub
 - Configurer les variables d'environnement dans le dashboard Render
-
-**Railway:**
 - `npm run prisma:migrate:deploy && npm start`
 
 ### 2. Variables Vercel (frontend)
 
 Configurer dans le projet Vercel:
 
-- `VITE_API_URL`: URL publique Railway de l'API
+- `VITE_API_URL`: URL publique render de l'API
 
 Exemple:
 
 ```env
-VITE_API_URL=https://skillswap-api-production.up.railway.app
+VITE_API_URL=https://skyllswap-app-react.onrender.com/
 ```
 
 ### 3. Verifications post-deploiement

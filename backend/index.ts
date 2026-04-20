@@ -11,6 +11,12 @@ import rateLimit from 'express-rate-limit';
 import http from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import { authMiddleware } from './src/middleware/auth.js';
+// import { secretManager } from './src/utils/secrets.js';
+import {
+  logAuthenticationSuccess,
+  logAuthenticationFailure
+} from './src/utils/securityLogger-simple.js';
 import type {
   JwtPayload,
   ProfileData,
@@ -267,24 +273,22 @@ const REFRESH_TOKEN_COOKIE_NAME =
 let io: Server | null = null;
 
 const signAccessToken = (user: UserWithProfile): string =>
-  jwt.sign(
+  authMiddleware.signToken(
     {
-      sub: user.id,
+      sub: user.id.toString(),
       email: user.email,
       name: user.name,
     },
-    JWT_SECRET,
-    { expiresIn: ACCESS_TOKEN_TTL }
+    ACCESS_TOKEN_TTL
   );
 
 const signRefreshToken = (user: UserWithProfile): string =>
-  jwt.sign(
+  authMiddleware.signToken(
     {
-      sub: user.id,
+      sub: user.id.toString(),
       type: 'refresh',
     },
-    JWT_SECRET,
-    { expiresIn: '7d' }
+    '7d'
   );
 
 const sessionCookieOptions = {
@@ -358,41 +362,8 @@ const verifyRefreshToken = async (token: string): Promise<JwtPayload | null> => 
   }
 };
 
-declare global {
-  namespace Express {
-    interface Request {
-      auth?: JwtPayload;
-    }
-  }
-}
-
-const authRequired = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const header = req.headers.authorization || '';
-  const headerParts = header.split(' ');
-  const scheme = headerParts[0] || '';
-  const token = headerParts[1] || '';
-  const cookieToken = req.cookies ? req.cookies[SESSION_COOKIE_NAME] : null;
-  const accessToken =
-    scheme === 'Bearer' && token ? token : cookieToken ?? null;
-
-  if (!accessToken) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-
-  try {
-    const payload = jwt.verify(accessToken, JWT_SECRET) as JwtPayload;
-    req.auth = payload;
-    return next();
-  } catch {
-    return res
-      .status(401)
-      .json({ message: 'Invalid or expired token', code: 'TOKEN_EXPIRED' });
-  }
-};
+// Utiliser le middleware d'authentification avec rotation de secrets
+const authRequired = authMiddleware.verifyTokenWithRotation.bind(authMiddleware);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -497,20 +468,26 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline pour le développement
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        imgSrc: ["'self'", 'data:'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'https:'],
         connectSrc: [
           "'self'",
           'http://localhost:4000',
           'ws://localhost:5173',
-          'https://*.railway.app',
+          'wss://localhost:5173'
         ],
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        workerSrc: ["'self'", 'blob:'],
+        manifestSrc: ["'self'"],
+        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : undefined as any,
       },
+      reportOnly: process.env.NODE_ENV === 'development',
     },
     crossOriginEmbedderPolicy: false,
   })
@@ -606,8 +583,11 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
 
     if (!email || !password) {
+      logAuthenticationFailure('Missing email or password', ip, userAgent, '/api/auth/login');
       return res
         .status(400)
         .json({ message: 'email and password are required' });
@@ -615,6 +595,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
     const normalizedEmail = email.toString().trim().toLowerCase();
     if (!isValidEmail(normalizedEmail)) {
+      logAuthenticationFailure('Invalid email format', ip, userAgent, '/api/auth/login');
       return res.status(400).json({ message: 'invalid email format' });
     }
 
@@ -626,16 +607,21 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     });
 
     if (!user) {
+      logAuthenticationFailure('User not found', ip, userAgent, '/api/auth/login');
       return res.status(401).json({ message: 'invalid credentials' });
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      logAuthenticationFailure('Invalid password', ip, userAgent, '/api/auth/login');
       return res.status(401).json({ message: 'invalid credentials' });
     }
 
     await setSessionCookies(res, user as unknown as UserWithProfile);
     const csrfToken = await generateCsrfToken(user.id);
+
+    logAuthenticationSuccess(user.id.toString(), ip, userAgent);
+
     return res.json({
       user: toPublicUser(user as unknown as UserWithProfile),
       csrfToken,
@@ -643,6 +629,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   } catch (error) {
     const err = error as Error;
     logger.error('Login failed:', { error: err.message });
+    logAuthenticationFailure('Server error', req.ip, req.headers['user-agent'], '/api/auth/login');
     return res.status(500).json({ message: 'internal server error' });
   }
 });
@@ -775,7 +762,7 @@ app.put(
 
       const profile = await prisma.profile.update({
         where: { userId },
-        data: next,
+        data: next!,
       });
 
       return res.json({
@@ -884,13 +871,14 @@ app.get(
         (currentUser.profile.needs || []).length
       );
 
+      const currentProfile = currentUser.profile;
       const ranked = candidates.map((candidate: typeof candidates[number]) => {
         const givesCount = countOverlap(
-          currentUser.profile.offers,
+          currentProfile.offers,
           candidate.profile?.needs
         );
         const receivesCount = countOverlap(
-          currentUser.profile.needs,
+          currentProfile.needs,
           candidate.profile?.offers
         );
         const base =
@@ -1257,11 +1245,11 @@ app.get('/api/diagnose/db', async (_req, res) => {
     console.log('✅ Connexion réussie');
 
     // Tester une requête simple
-    const testResult = await prisma.$queryRaw`SELECT 1 as test`;
+    const testResult = await prisma.$queryRaw`SELECT 1 as test` as unknown[];
     console.log('✅ Requête test réussie');
 
     // Vérifier les migrations
-    let migrations = [];
+    let migrations: unknown[] = [];
     try {
       migrations = await prisma.$queryRaw`SELECT * FROM _prisma_migrations ORDER BY finished_at DESC`;
       console.log(`📊 Migrations trouvées: ${migrations.length}`);
@@ -1344,6 +1332,38 @@ app.get('/api/debug/env', (_req, res) => {
     },
     timestamp: new Date().toISOString()
   });
+});
+
+// Routes de sécurité et monitoring
+import securityRoutes from './src/routes/security-simple.js';
+app.use('/api/security', securityRoutes);
+
+// Endpoint pour vérifier l'état de sécurité global
+app.get('/api/security/status', (_req, res) => {
+  const securityStatus = {
+    authentication: {
+      jwtRotation: true,
+      refreshTokens: true,
+      csrfProtection: true,
+      rateLimiting: true
+    },
+    headers: {
+      hsts: true,
+      csp: true,
+      xFrameOptions: true,
+      xContentTypeOptions: true
+    },
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+    recommendations: [
+      'Regular security audits',
+      'Dependency updates',
+      'Log monitoring',
+      'Incident response plan'
+    ]
+  };
+
+  res.json(securityStatus);
 });
 
 const startServer = async () => {

@@ -314,28 +314,28 @@ const isValidEmail = (email) => {
 const generateCsrfToken = async (userId) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 3600000);
-    
+
     try {
         await prisma.csrfToken.upsert({
             where: { userId },
             update: { token, expiresAt, createdAt: new Date() },
             create: { userId, token, expiresAt },
         });
-    } catch (_e) {}
-    
+    } catch (_e) { }
+
     return token;
 };
 
 const verifyCsrfToken = async (userId, token) => {
     if (!token || !userId) return false;
-    
+
     try {
         const stored = await prisma.csrfToken.findUnique({ where: { userId } });
         if (stored && stored.expiresAt > new Date() && stored.token === token) {
             return true;
         }
-    } catch (_e) {}
-    
+    } catch (_e) { }
+
     return false;
 };
 
@@ -366,7 +366,7 @@ app.use(
                 styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
                 fontSrc: ["'self'", "https://fonts.gstatic.com"],
                 imgSrc: ["'self'", "data:"],
-                connectSrc: ["'self'", "http://localhost:4000", "ws://localhost:5173", "https://*.railway.app"],
+                connectSrc: ["'self'", "http://localhost:4000", "ws://localhost:5173"],
                 frameAncestors: ["'none'"],
                 baseUri: ["'self'"],
                 formAction: ["'self'"],
@@ -556,9 +556,9 @@ app.post('/api/auth/logout', async (req, res) => {
         if (refreshToken) {
             await prisma.refreshToken.deleteMany({
                 where: { token: refreshToken },
-            }).catch(() => {});
+            }).catch(() => { });
         }
-    } catch (_e) {}
+    } catch (_e) { }
 
     clearAllCookies(res);
     return res.json({ message: 'logout ok' });
