@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "dev": "tsx watch index.ts",
-    "start": "tsx index.ts",
+    "start": "node index.js",
     "build": "echo 'Using tsx - no build needed'",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
@@ -54,7 +54,6 @@
     "nodemon": "^3.1.11",
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.9",
-    "tsx": "^4.21.0",
     "typescript": "^6.0.2"
   }
 }
