@@ -10,7 +10,8 @@ test.describe('Profil utilisateur', () => {
   });
 
   test('affiche le formulaire de profil', async ({ page }) => {
-    const form = page.locator('form');
-    await expect(form.first()).toBeVisible();
+    // Le formulaire de profil est dans un article avec h2 "Mon profil"
+    const profileSection = page.locator('article:has(h2:has-text("Mon profil"))');
+    await expect(profileSection).toBeVisible();
   });
 });

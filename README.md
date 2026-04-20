@@ -55,38 +55,36 @@ CI:
 - `GET /api/profile/me` (Bearer token)
 - `PUT /api/profile/me` (Bearer token)
 
-## Deploiement cloud (front + API + DB)
+## Déploiement
 
-Stack de production recommandee:
+Pour des instructions détaillées de déploiement sur Render (backend) et Vercel (frontend), consultez le guide complet:
 
-- Frontend: Vercel
-- API: Render
-- DB: Neon PostgreSQL
+📖 **[DEPLOYMENT.md](DEPLOYMENT.md)** - Guide complet de déploiement avec GitHub Actions
 
-### 1. Backend sur Render
+### Stack de production recommandée
 
-**Render (gratuit):**
-- Créer service "Web Service"
-- Connecter le repo GitHub
-- Configurer les variables d'environnement dans le dashboard Render
-- `npm run prisma:migrate:deploy && npm start`
+- **Frontend**: Vercel (React + Vite)
+- **Backend**: Render (Express API)
+- **Base de données**: Neon PostgreSQL
 
-### 2. Variables Vercel (frontend)
+### Déploiement automatisé avec GitHub Actions
 
-Configurer dans le projet Vercel:
+Le projet inclut des workflows GitHub Actions pour:
 
-- `VITE_API_URL`: URL publique render de l'API
+1. **Déploiement automatique** sur push vers `main`
+2. **Tests automatisés** avant chaque déploiement
+3. **Validation de code** (linting, type checking)
 
-Exemple:
+### Configuration rapide
 
-```env
-VITE_API_URL=https://skyllswap-app-react.onrender.com/
-```
+1. **Backend sur Render**:
+   - Créer un service Web sur Render
+   - Configurer les variables d'environnement
+   - Ajouter le webhook comme secret GitHub
 
-### 3. Verifications post-deploiement
+2. **Frontend sur Vercel**:
+   - Importer le projet sur Vercel
+   - Configurer `VITE_API_URL`
+   - Ajouter les tokens comme secrets GitHub
 
-- API health: `GET /api/health`
-- Register/Login depuis l'UI
-- Edition de profil
-- Matching reel
-- Creation conversation + envoi messages
+Consultez [DEPLOYMENT.md](DEPLOYMENT.md) pour les instructions détaillées.
