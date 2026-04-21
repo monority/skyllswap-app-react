@@ -45,34 +45,40 @@ function ProfileForm({
       />
 
       <Select
-        label="Disponibilite"
+        label="Disponibilité"
         id="profile-availability"
         value={form.availability}
         onChange={e => onUpdateField('availability', e.target.value)}
         options={AVAILABILITY_OPTIONS}
       />
 
-      <label className="field-label" htmlFor="profile-offers">
-        Ce que je propose
-      </label>
-      <textarea
-        id="profile-offers"
-        value={form.offersText}
-        onChange={e => onUpdateField('offersText', e.target.value)}
-        placeholder="React, Design UI, Anglais"
-        rows={3}
-      />
+      <div className="form-field">
+        <label className="form-label" htmlFor="profile-offers">
+          Ce que je propose
+        </label>
+        <textarea
+          id="profile-offers"
+          className="input textarea"
+          value={form.offersText}
+          onChange={e => onUpdateField('offersText', e.target.value)}
+          placeholder="React, Design UI, Anglais"
+          rows={2}
+        />
+      </div>
 
-      <label className="field-label" htmlFor="profile-needs">
-        Ce que je recherche
-      </label>
-      <textarea
-        id="profile-needs"
-        value={form.needsText}
-        onChange={e => onUpdateField('needsText', e.target.value)}
-        placeholder="Node.js, Photographie, Cuisine"
-        rows={3}
-      />
+      <div className="form-field">
+        <label className="form-label" htmlFor="profile-needs">
+          Ce que je recherche
+        </label>
+        <textarea
+          id="profile-needs"
+          className="input textarea"
+          value={form.needsText}
+          onChange={e => onUpdateField('needsText', e.target.value)}
+          placeholder="Node.js, Photographie, Cuisine"
+          rows={2}
+        />
+      </div>
 
       <Button type="submit" disabled={saving || loading}>
         {saving ? 'Sauvegarde...' : 'Enregistrer le profil'}
