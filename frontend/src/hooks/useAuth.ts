@@ -32,10 +32,27 @@ const ACCESS_TOKEN_CHECK_INTERVAL = 60000;
 export const useAuth = (apiFetch: ApiFetch) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [csrfToken, setCsrfTokenState] = useState<string | null>(null);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null
   );
+
+  const setCsrfToken = useCallback((token: string | null) => {
+    setCsrfTokenState(token);
+    if (token) {
+      localStorage.setItem('skillswap_csrf', token);
+    } else {
+      localStorage.removeItem('skillswap_csrf');
+    }
+  }, []);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('skillswap_csrf');
+    if (storedToken) {
+      setCsrfTokenState(storedToken);
+      apiService.setCsrfToken(storedToken);
+    }
+  }, []);
 
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     try {
