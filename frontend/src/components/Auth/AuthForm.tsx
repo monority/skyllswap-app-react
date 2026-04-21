@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import Button from '../UI/Button';
+import Input from '../UI/Input';
 
 interface AuthFormProps {
   onLogin: (
@@ -76,7 +77,8 @@ function AuthForm({ onLogin, onRegister, loading }: AuthFormProps) {
       </div>
 
       {mode === 'register' && (
-        <input
+        <Input
+          label="Pseudo"
           value={form.name}
           onChange={e => handleInput('name', e.target.value)}
           placeholder="Ton pseudo"
@@ -87,23 +89,23 @@ function AuthForm({ onLogin, onRegister, loading }: AuthFormProps) {
         />
       )}
 
-      <input
+      <Input
+        label="Email"
+        type="email"
         value={form.email}
         onChange={e => handleInput('email', e.target.value)}
-        placeholder="Email"
-        aria-label="Email"
-        type="email"
-        autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+        placeholder="email@exemple.com"
+        autoComplete={mode === 'register' ? 'email' : 'current-password'}
         maxLength={120}
         required
       />
 
-      <input
+      <Input
+        label="Mot de passe"
+        type="password"
         value={form.password}
         onChange={e => handleInput('password', e.target.value)}
-        placeholder="Mot de passe"
-        aria-label="Mot de passe"
-        type="password"
+        placeholder="••••••••"
         autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
         minLength={8}
         required

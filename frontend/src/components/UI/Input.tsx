@@ -2,12 +2,14 @@ import { forwardRef, type InputHTMLAttributes } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  hint?: string;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   (
     {
       label,
+      hint,
       id,
       type = 'text',
       value,
@@ -26,9 +28,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id || `input-${label?.toLowerCase().replace(/\s+/g, '-')}`;
 
     return (
-      <>
+      <div className="form-field">
         {label && (
-          <label className="field-label" htmlFor={inputId}>
+          <label
+            className={`form-label ${required ? 'form-label--required' : ''}`}
+            htmlFor={inputId}
+          >
             {label}
           </label>
         )}
@@ -44,10 +49,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           maxLength={maxLength}
           autoComplete={autoComplete}
           disabled={disabled}
-          className={className}
+          className={`input ${className}`.trim()}
           {...props}
         />
-      </>
+        {hint && <span className="form-hint">{hint}</span>}
+      </div>
     );
   }
 );

@@ -1,7 +1,8 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+  size?: 'sm' | 'default' | 'lg' | 'icon';
   loading?: boolean;
 }
 
@@ -9,6 +10,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     children,
     variant = 'primary',
+    size = 'default',
     disabled,
     loading,
     className = '',
@@ -16,17 +18,22 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   },
   ref
 ) {
-  const baseClass = variant === 'secondary' ? 'secondary' : '';
+  const variantClass = `btn--${variant}`;
+  const sizeClass = `btn--${size}`;
 
   return (
     <button
       ref={ref}
       type="button"
-      className={`${baseClass} ${className}`.trim()}
+      className={`btn ${variantClass} ${sizeClass} ${className}`.trim()}
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? '...' : children}
+      {loading ? (
+        <span className="loader-spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px' }} />
+      ) : (
+        children
+      )}
     </button>
   );
 });

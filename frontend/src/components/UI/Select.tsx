@@ -24,9 +24,9 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
       id || `select-${label?.toLowerCase().replace(/\s+/g, '-')}`;
 
     return (
-      <>
+      <div className="form-field">
         {label && (
-          <label className="field-label" htmlFor={selectId}>
+          <label className="form-label" htmlFor={selectId}>
             {label}
           </label>
         )}
@@ -36,7 +36,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           value={value}
           onChange={onChange}
           disabled={disabled}
-          className={className}
+          className={`input ${className}`.trim()}
           {...props}
         >
           {options.map(option => (
@@ -45,7 +45,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           ))}
         </select>
-      </>
+      </div>
     );
   }
 );
