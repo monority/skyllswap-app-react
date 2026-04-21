@@ -341,7 +341,7 @@ const verifyCsrfToken = async (userId, token) => {
 
 const csrfProtection = async (req, res, next) => {
     const publicPaths = ['/api/auth/register', '/api/auth/login', '/api/health', '/api/skills', '/api/matches/preview', '/api/matches/me', '/api/auth/me'];
-    if (req.method === 'GET' && publicPaths.some(p => req.path.startsWith(p))) {
+    if (req.method === 'GET') {
         return next();
     }
     const token = req.headers['x-csrf-token'];
