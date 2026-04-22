@@ -22,8 +22,8 @@ describe('AuthForm', () => {
 
   it('should render login form by default', () => {
     render(<TestWrapper />);
-    expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/mot de passe/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/email@exemple.com/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/••••••••/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /me connecter/i })
     ).toBeInTheDocument();
@@ -42,10 +42,10 @@ describe('AuthForm', () => {
     mockLogin.mockResolvedValue({ success: true });
     render(<TestWrapper />);
 
-    fireEvent.change(screen.getByPlaceholderText(/email/i), {
+    fireEvent.change(screen.getByPlaceholderText(/email@exemple.com/i), {
       target: { value: 'test@example.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/mot de passe/i), {
+    fireEvent.change(screen.getByPlaceholderText(/••••••••/i), {
       target: { value: 'password123' },
     });
 
@@ -63,10 +63,10 @@ describe('AuthForm', () => {
     fireEvent.change(screen.getByPlaceholderText(/ton pseudo/i), {
       target: { value: 'TestUser' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/email/i), {
+    fireEvent.change(screen.getByPlaceholderText(/email@exemple.com/i), {
       target: { value: 'test@example.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/mot de passe/i), {
+    fireEvent.change(screen.getByPlaceholderText(/••••••••/i), {
       target: { value: 'password123' },
     });
 
@@ -86,10 +86,10 @@ describe('AuthForm', () => {
     });
     render(<TestWrapper />);
 
-    fireEvent.change(screen.getByPlaceholderText(/email/i), {
+    fireEvent.change(screen.getByPlaceholderText(/email@exemple.com/i), {
       target: { value: 'wrong@example.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/mot de passe/i), {
+    fireEvent.change(screen.getByPlaceholderText(/••••••••/i), {
       target: { value: 'wrongpassword' },
     });
 

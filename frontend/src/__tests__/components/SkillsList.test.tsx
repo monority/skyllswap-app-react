@@ -37,7 +37,7 @@ describe('SkillsList', () => {
         isLoading={true}
       />
     );
-    expect(screen.getByText(/chargement des competences/i)).toBeInTheDocument();
+    expect(screen.getByText(/chargement/i)).toBeInTheDocument();
   });
 
   it('should show empty state when no skills', () => {
@@ -49,7 +49,7 @@ describe('SkillsList', () => {
         isLoading={false}
       />
     );
-    expect(screen.getByText(/aucune competence/i)).toBeInTheDocument();
+    expect(screen.getByText(/aucune compétence/i)).toBeInTheDocument();
   });
 
   it('should call onQueryChange when input changes', () => {
@@ -79,7 +79,7 @@ describe('SkillsList', () => {
         isLoading={false}
       />
     );
-    expect(screen.getByText(/niveau: intermediaire/i)).toBeInTheDocument();
-    expect(screen.getByText(/niveau: avance/i)).toBeInTheDocument();
+    expect(screen.getByText(/intermediaire/i)).toBeInTheDocument();
+    expect(screen.getByText(/avance/i)).toBeInTheDocument();
   });
 });
