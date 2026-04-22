@@ -35,21 +35,28 @@ function MatchSection({
   };
 
   return (
-    <>
+    <div className="matches-container">
       {currentUser && (
-        <div className="match-filters">
-          <Input
-            value={matchFilters.city}
-            onChange={handleCityChange}
-            placeholder="Filtrer par ville..."
-            aria-label="Ville"
-          />
+        <div className="matches-filters">
+          <div className="matches-filter">
+            <svg className="matches-filter__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <Input
+              value={matchFilters.city}
+              onChange={handleCityChange}
+              placeholder="Ville..."
+              aria-label="Ville"
+              className="matches-filter__input"
+            />
+          </div>
           <Select
             value={matchFilters.availability}
             onChange={handleAvailabilityChange}
             aria-label="Disponibilite"
             options={[
-              { value: '', label: 'Toutes disponibilites' },
+              { value: '', label: 'Toutes dispo.' },
               ...AVAILABILITY_OPTIONS,
             ]}
           />
@@ -57,44 +64,62 @@ function MatchSection({
       )}
 
       {!currentUser && matchPreview && (
-        <div className="match-card">
-          <p className="name">{matchPreview.pseudo}</p>
-          <p>Donne: {matchPreview.gives}</p>
-          <p>Recherche: {matchPreview.wants}</p>
-          <p className="score">Compatibilite: {matchPreview.compatibility}%</p>
+        <div className="match-preview">
+          <div className="match-preview__header">
+            <span className="match-preview__name">{matchPreview.pseudo}</span>
+            <span className="badge badge--primary">{matchPreview.compatibility}%</span>
+          </div>
+          <div className="match-preview__body">
+            <p><strong>Donne:</strong> {matchPreview.gives}</p>
+            <p><strong>Recherche:</strong> {matchPreview.wants}</p>
+          </div>
         </div>
       )}
 
       {currentUser && topMatches.length === 0 && (
-        <p className="hint">
-          Aucun profil correspondant. Elargis tes filtres ou complete ton
-          profil.
-        </p>
+        <div className="matches-empty">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="m8 12 3 3 5-5"></path>
+          </svg>
+          <p>Aucun profil correspondant</p>
+          <span>Elargis tes filtres ou complète ton profil</span>
+        </div>
       )}
 
       {currentUser && (
-        <div className="top-matches">
+        <div className="matches-list">
           {topMatches.map(match => (
-            <div key={match.matchId} className="match-item">
-              <div className="match-info">
-                <p className="name">{match.pseudo}</p>
-                <p>
-                  {match.city}
-                  {match.availability ? ` · ${match.availability}` : ''}
-                </p>
-                <p>{match.gives}</p>
+            <div key={match.matchId} className="match-row">
+              <div className="match-row__avatar">
+                {match.pseudo.charAt(0).toUpperCase()}
               </div>
-              <span className="score">{match.compatibility}%</span>
-              <Button onClick={() => onStartConversation(match.matchId)}>
-                Contacter
-              </Button>
+              <div className="match-row__info">
+                <div className="match-row__header">
+                  <span className="match-row__name">{match.pseudo}</span>
+                  <span className="match-row__meta">
+                    {match.city}{match.availability ? ` · ${match.availability}` : ''}
+                  </span>
+                </div>
+                <div className="match-row__skills">
+                  <span className="match-row__give">{match.gives}</span>
+                  <span className="match-row__arrow">→</span>
+                  <span className="match-row__want">{match.wants}</span>
+                </div>
+              </div>
+              <div className="match-row__actions">
+                <span className="match-score">{match.compatibility}%</span>
+                <Button size="sm" onClick={() => onStartConversation(match.matchId)}>
+                  Contacter
+                </Button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <p className="hint">{hintMessage || 'Calcul du matching en cours...'}</p>
-    </>
+      <p className="matches-hint">{hintMessage || 'Calcul du matching en cours...'}</p>
+    </div>
   );
 }
 

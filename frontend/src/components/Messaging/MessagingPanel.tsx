@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
 import Input from '../UI/Input';
 import Button from '../UI/Button';
 import { truncateText, escapeHtml } from '../../utils';
@@ -21,26 +21,34 @@ function ConversationItem({
 }: ConversationItemProps) {
   const other = conversation.participants.find(p => p.id !== currentUserId);
   const lastMsg = conversation.messages?.[0];
+  const firstLetter = other?.name?.charAt(0).toUpperCase() || '?';
 
   return (
     <button
       type="button"
-      className={`conv-item${isActive ? ' active' : ' secondary'}${isUnread ? ' unread' : ''}`}
+      className={`conv-item${isActive ? ' active' : ''}${isUnread ? ' unread' : ''}`}
       onClick={onClick}
+      data-name={escapeHtml(other?.name || 'Utilisateur')}
+      title={escapeHtml(other?.name || 'Utilisateur')}
     >
-      <div className="conv-item-header">
-        <span className="conv-name">
-          {escapeHtml(other?.name || 'Utilisateur')}
-        </span>
-        {isUnread && (
-          <span className="unread-dot" aria-label="Nouveau message" />
+      <div className="conv-avatar">
+        {firstLetter}
+      </div>
+      <div className="conv-content">
+        <div className="conv-header">
+          <span className="conv-name">
+            {escapeHtml(other?.name || 'Utilisateur')}
+          </span>
+          {isUnread && (
+            <span className="conv-unread-badge" aria-label="Nouveau message" />
+          )}
+        </div>
+        {lastMsg && (
+          <span className="conv-preview">
+            {truncateText(escapeHtml(lastMsg.content), 35)}
+          </span>
         )}
       </div>
-      {lastMsg && (
-        <span className="conv-preview">
-          {truncateText(escapeHtml(lastMsg.content), 40)}
-        </span>
-      )}
     </button>
   );
 }
@@ -107,6 +115,8 @@ interface MessageThreadProps {
   onSendMessage: (event: React.FormEvent) => void;
   sending: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  activeConversation?: Conversation | null;
+  onBack?: () => void;
 }
 
 function MessageThread({
@@ -118,6 +128,8 @@ function MessageThread({
   onSendMessage,
   sending,
   messagesEndRef,
+  activeConversation,
+  onBack,
 }: MessageThreadProps) {
   if (!activeConvId) {
     return (
@@ -125,8 +137,22 @@ function MessageThread({
     );
   }
 
+  const other = activeConversation?.participants.find(p => p.id !== currentUserId);
+  const firstLetter = other?.name?.charAt(0).toUpperCase() || '?';
+
   return (
     <>
+      <div className="thread-header">
+        {onBack && (
+          <button className="thread-header-back" onClick={onBack} aria-label="Retour aux conversations">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+        )}
+        <div className="thread-header-avatar">{firstLetter}</div>
+        <div className="thread-header-name">{escapeHtml(other?.name || 'Utilisateur')}</div>
+      </div>
       <div className="messages-area">
         {messages.length === 0 ? (
           <p className="hint">Aucun message. Ecris le premier !</p>
@@ -184,17 +210,30 @@ function MessagingPanel({
   isUnread,
   sending,
 }: MessagingPanelProps) {
+  const [showThreadMobile, setShowThreadMobile] = useState(false);
+
+  const handleSelectConversation = useCallback((convId: number) => {
+    onSelectConversation(convId);
+    setShowThreadMobile(true);
+  }, [onSelectConversation]);
+
+  const handleBackToList = useCallback(() => {
+    setShowThreadMobile(false);
+  }, []);
+
   if (!currentUser) {
     return <p className="hint">Connecte-toi pour acceder a la messagerie.</p>;
   }
 
+  const showThread = activeConvId && showThreadMobile;
+
   return (
-    <div className="messaging-layout">
+    <div className={`messaging-layout${showThread ? ' messaging-layout--thread-open' : ''}`}>
       <ConversationList
         conversations={conversations}
         currentUserId={currentUser.id}
         activeConvId={activeConvId}
-        onSelectConversation={onSelectConversation}
+        onSelectConversation={handleSelectConversation}
         isUnread={isUnread}
       />
       <div className="message-thread">
@@ -207,6 +246,8 @@ function MessagingPanel({
           onSendMessage={onSendMessage}
           sending={sending}
           messagesEndRef={messagesEndRef}
+          activeConversation={conversations.find(c => c.id === activeConvId)}
+          onBack={activeConvId ? handleBackToList : undefined}
         />
       </div>
     </div>
