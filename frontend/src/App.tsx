@@ -12,7 +12,6 @@ import {
   ProfileForm,
   SkillsList,
   Header,
-  Button,
   Seo,
 } from './components';
 
@@ -130,107 +129,94 @@ function App() {
     [updateFilters]
   );
 
+  const handleStartConversation = useCallback(
+    async (matchId: number) => {
+      await startConversation(matchId);
+      setIsChatOpen(true);
+    },
+    [startConversation]
+  );
+
   return (
     <>
       <Seo />
       <div className="page-wrapper">
-        <Header apiStatus={apiStatus} />
-        <main className="dashboard" aria-busy={isLoading || profileLoading}>
-          <section className="panel">
-            <h2>Compte</h2>
-            <div className="panel-content">
-              {currentUser ? (
-                <div className="auth-user">
-                  <p className="name">Connecté: {currentUser.name}</p>
-                  <p>{currentUser.email}</p>
-                  <Button variant="outline" size="sm" onClick={handleLogout}>
-                    Se déconnecter
-                  </Button>
-                </div>
-              ) : (
-                <AuthForm
-                  onLogin={handleLogin}
-                  onRegister={handleRegister}
-                  loading={false}
+        <Header apiStatus={apiStatus} user={currentUser} onLogout={handleLogout} onOpenMessages={() => setIsChatOpen(true)} unreadCount={unreadCount} />
+
+        {currentUser ? (
+          /* LOGGED IN: Full Dashboard */
+          <main className="dashboard" aria-busy={isLoading || profileLoading}>
+            <section className="panel">
+              <h2>Mon profil</h2>
+              <div className="panel-content">
+                <ProfileForm
+                  form={profileForm}
+                  onUpdateField={updateProfileField}
+                  onSave={saveProfile}
+                  loading={profileLoading}
+                  saving={profileSaving}
+                  message={profileMessage}
                 />
-              )}
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>Recherche</h2>
+              <div className="panel-content">
+                <SkillsList
+                  skills={visibleSkills}
+                  query={query}
+                  onQueryChange={setQuery}
+                  isLoading={isLoading}
+                />
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>Matchs</h2>
+              <div className="panel-content">
+                <Suspense fallback={<SectionLoader />}>
+                  <MatchSection
+                    currentUser={currentUser}
+                    matchPreview={matchPreview}
+                    topMatches={topMatches}
+                    matchFilters={matchFilters}
+                    onFiltersChange={handleFiltersChange}
+                    onStartConversation={handleStartConversation}
+                    hintMessage={matchHintMessage}
+                  />
+                </Suspense>
+              </div>
+            </section>
+          </main>
+        ) : (
+          /* NOT LOGGED IN: Auth Landing Page */
+          <main className="auth-landing" aria-busy={isLoading}>
+            <div className="auth-landing-card">
+              <div className="auth-landing-brand">
+                <div className="auth-logo">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                  </svg>
+                </div>
+                <h1>SkillSwap</h1>
+                <p>Échangez vos compétences, apprenez ensemble</p>
+              </div>
+
+              <AuthForm
+                onLogin={handleLogin}
+                onRegister={handleRegister}
+                loading={false}
+              />
+
               {authMessage ? (
                 <p className="hint" role="status">
                   {authMessage}
                 </p>
               ) : null}
             </div>
-          </section>
-
-          <section className="panel">
-            <h2>Mon profil</h2>
-            <div className="panel-content">
-              <ProfileForm
-                form={profileForm}
-                onUpdateField={updateProfileField}
-                onSave={saveProfile}
-                loading={profileLoading}
-                saving={profileSaving}
-                message={profileMessage}
-              />
-            </div>
-          </section>
-
-          <section className="panel">
-            <h2>Recherche</h2>
-            <div className="panel-content">
-              <SkillsList
-                skills={visibleSkills}
-                query={query}
-                onQueryChange={setQuery}
-                isLoading={isLoading}
-              />
-            </div>
-          </section>
-
-          <section className="panel">
-            <h2>Matchs</h2>
-            <div className="panel-content">
-              <Suspense fallback={<SectionLoader />}>
-                <MatchSection
-                  currentUser={currentUser}
-                  matchPreview={matchPreview}
-                  topMatches={topMatches}
-                  matchFilters={matchFilters}
-                  onFiltersChange={handleFiltersChange}
-                  onStartConversation={startConversation}
-                  hintMessage={matchHintMessage}
-                />
-              </Suspense>
-            </div>
-          </section>
-
-        </main>
-
-        {/* Floating Chat Button */}
-        <button
-          className={`chat-fab ${unreadCount > 0 ? 'has-unread' : ''}`}
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          aria-label={isChatOpen ? 'Fermer la messagerie' : 'Ouvrir la messagerie'}
-        >
-          {isChatOpen ? (
-            <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-              <span>Fermer</span>
-            </>
-          ) : (
-            <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-              </svg>
-              <span>Messages</span>
-              {unreadCount > 0 && <span className="chat-badge">{unreadCount}</span>}
-            </>
-          )}
-        </button>
+          </main>
+        )}
 
         {/* Chat Modal */}
         {isChatOpen && (
