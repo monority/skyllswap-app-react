@@ -28,15 +28,15 @@ describe('Button', () => {
     expect(handleClick).not.toHaveBeenCalled();
   });
 
-  it('should show loading text when loading', () => {
+  it('should show loading spinner when loading', () => {
     render(<Button loading>Click me</Button>);
-    expect(screen.getByText('...')).toBeInTheDocument();
+    expect(document.querySelector('.loader-spinner')).toBeInTheDocument();
   });
 
   it('should apply secondary class when variant is secondary', () => {
     const { container } = render(
       <Button variant="secondary">Secondary</Button>
     );
-    expect(container.firstChild).toHaveClass('secondary');
+    expect(container.firstChild).toHaveClass('btn--secondary');
   });
 });

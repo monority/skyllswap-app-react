@@ -35,7 +35,6 @@ function SectionLoader() {
 
 function App() {
   const [query, setQuery] = useState('');
-  const [authMessage, setAuthMessage] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const { apiStatus, skills, isLoading } = useApiInitialization();
@@ -91,10 +90,7 @@ function App() {
   const handleLogin = useCallback(
     async (email: string, password: string) => {
       const result = await login(email, password);
-      if (!result.success) {
-        setAuthMessage(result.message || '');
-      } else {
-        setAuthMessage('Connexion reussie.');
+      if (result.success) {
         setProfileMessage('');
       }
       return result;
@@ -105,10 +101,7 @@ function App() {
   const handleRegister = useCallback(
     async (name: string, email: string, password: string) => {
       const result = await register(name, email, password);
-      if (!result.success) {
-        setAuthMessage(result.message || '');
-      } else {
-        setAuthMessage('Compte cree et connecte.');
+      if (result.success) {
         setProfileMessage('');
       }
       return result;
@@ -118,7 +111,6 @@ function App() {
 
   const handleLogout = useCallback(async () => {
     await logout();
-    setAuthMessage('Session fermee.');
     setProfileMessage('');
   }, [logout, setProfileMessage]);
 
@@ -208,12 +200,6 @@ function App() {
                 onRegister={handleRegister}
                 loading={false}
               />
-
-              {authMessage ? (
-                <p className="hint" role="status">
-                  {authMessage}
-                </p>
-              ) : null}
             </div>
           </main>
         )}
