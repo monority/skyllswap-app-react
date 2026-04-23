@@ -15,8 +15,8 @@ interface HeaderProps {
 }
 
 function Header({ apiStatus, user, onLogout, onOpenMessages, unreadCount }: HeaderProps) {
-  const isOnline = apiStatus === 'online';
-  const isLoading = apiStatus === 'loading';
+  const isOnline = apiStatus === 'ok';
+  const isLoading = apiStatus === 'checking';
 
   return (
     <header className="app-header">
