@@ -57,10 +57,6 @@ CI:
 
 ## Déploiement
 
-Pour des instructions détaillées de déploiement sur Render (backend) et Vercel (frontend), consultez le guide complet:
-
-📖 **[DEPLOYMENT.md](DEPLOYMENT.md)** - Guide complet de déploiement avec GitHub Actions
-
 ### Stack de production recommandée
 
 - **Frontend**: Vercel (React + Vite)
@@ -86,5 +82,3 @@ Le projet inclut des workflows GitHub Actions pour:
    - Importer le projet sur Vercel
    - Configurer `VITE_API_URL`
    - Ajouter les tokens comme secrets GitHub
-
-Consultez [DEPLOYMENT.md](DEPLOYMENT.md) pour les instructions détaillées.
