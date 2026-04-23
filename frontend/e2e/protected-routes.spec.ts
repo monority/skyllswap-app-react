@@ -6,11 +6,11 @@ test.describe('Content Visibility Based on Auth', () => {
   });
 
   test('sees login/register buttons', async ({ page }) => {
-    // Les boutons de connexion/inscription sont dans le panneau "Compte"
-    const comptePanel = page.locator('article:has(h2:has-text("Compte"))');
-    await expect(comptePanel).toBeVisible();
-    await expect(comptePanel.getByRole('button', { name: /connexion/i })).toBeVisible();
-    await expect(comptePanel.getByRole('button', { name: /inscription/i })).toBeVisible();
+    // Les boutons de connexion/inscription sont dans le formulaire d'auth
+    const authForm = page.locator('.auth-form');
+    await expect(authForm).toBeVisible();
+    await expect(authForm.getByRole('button', { name: /Connexion/i })).toBeVisible();
+    await expect(authForm.getByRole('button', { name: /Inscription/i })).toBeVisible();
   });
 
   test('does not see logout button', async ({ page }) => {
@@ -19,11 +19,8 @@ test.describe('Content Visibility Based on Auth', () => {
   });
 
   test('sees auth form container', async ({ page }) => {
-    // Le formulaire est dans le panneau "Compte"
-    const comptePanel = page.locator('article:has(h2:has-text("Compte"))');
-    await expect(comptePanel).toBeVisible();
-    // Le formulaire d'auth est le premier .auth-form dans le panneau
-    const authForm = comptePanel.locator('.auth-form').first();
+    // Le formulaire d'auth est directement visible
+    const authForm = page.locator('.auth-form');
     await expect(authForm).toBeVisible();
   });
 });

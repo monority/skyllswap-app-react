@@ -5,13 +5,17 @@ test.describe('Profil utilisateur', () => {
     await page.goto('/');
   });
 
-  test('affiche la section profil', async ({ page }) => {
+  test('affiche la landing page avec branding', async ({ page }) => {
     await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('.auth-landing')).toBeVisible();
   });
 
-  test('affiche le formulaire de profil', async ({ page }) => {
-    // Le formulaire de profil est dans un article avec h2 "Mon profil"
-    const profileSection = page.locator('article:has(h2:has-text("Mon profil"))');
-    await expect(profileSection).toBeVisible();
+  test('le formulaire de profil est accessible apres connexion', async ({ page }) => {
+    // Sans connexion, on voit le formulaire d'auth
+    const authForm = page.locator('.auth-form');
+    await expect(authForm).toBeVisible();
+    // Le formulaire de profil n'est visible que pour les utilisateurs connectes
+    const profileSection = page.locator('section:has(h2:has-text("Mon profil"))');
+    await expect(profileSection).not.toBeVisible();
   });
 });

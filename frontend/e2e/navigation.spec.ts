@@ -12,9 +12,9 @@ test.describe('Navigation et structure', () => {
 
   test('toutes les sections principales sont visibles', async ({ page }) => {
     await expect(page.locator('h1')).toBeVisible();
-    // Le formulaire est dans le panneau "Compte"
-    const comptePanel = page.locator('article:has(h2:has-text("Compte"))');
-    await expect(comptePanel).toBeVisible();
+    // Le formulaire d'auth est visible
+    const authForm = page.locator('.auth-form');
+    await expect(authForm).toBeVisible();
   });
 
   test('accessibilite - elements focusables', async ({ page }) => {

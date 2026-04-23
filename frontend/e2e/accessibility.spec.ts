@@ -14,13 +14,10 @@ test.describe('Accessibility', () => {
   });
 
   test('form fields are focusable', async ({ page }) => {
-    // Le formulaire est dans le panneau "Compte"
-    const comptePanel = page.locator('article:has(h2:has-text("Compte"))');
-    await expect(comptePanel).toBeVisible();
-    // Le formulaire d'auth est le premier .auth-form dans le panneau
-    const authForm = comptePanel.locator('.auth-form').first();
+    // Le formulaire d'auth est directement visible
+    const authForm = page.locator('.auth-form');
     await expect(authForm).toBeVisible();
-    const emailInput = authForm.locator('input[placeholder="Email"]');
+    const emailInput = authForm.locator('input[type="email"]');
     await expect(emailInput).toBeVisible();
     await emailInput.focus();
     const focused = page.locator(':focus');
