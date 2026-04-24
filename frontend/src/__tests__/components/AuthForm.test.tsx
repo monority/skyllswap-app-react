@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import AuthForm from '../../components/Auth/AuthForm';
 
 const mockLogin = vi.fn();
@@ -49,9 +49,13 @@ describe('AuthForm', () => {
       target: { value: 'password123' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /me connecter/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /me connecter/i }));
+    });
 
-    expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+    });
   });
 
   it('should call register when submitting in register mode', async () => {
@@ -70,13 +74,17 @@ describe('AuthForm', () => {
       target: { value: 'password123' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /creer mon compte/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /creer mon compte/i }));
+    });
 
-    expect(mockRegister).toHaveBeenCalledWith(
-      'TestUser',
-      'test@example.com',
-      'password123'
-    );
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith(
+        'TestUser',
+        'test@example.com',
+        'password123'
+      );
+    });
   });
 
   it('should show error message on login failure', async () => {
@@ -93,7 +101,9 @@ describe('AuthForm', () => {
       target: { value: 'wrongpassword' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /me connecter/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /me connecter/i }));
+    });
 
     await vi.waitFor(() => {
       expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();

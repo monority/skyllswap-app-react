@@ -24,6 +24,8 @@ const MessagingPanel = lazy(() =>
 
 import type { MatchFilters } from './types';
 
+type DashboardSection = 'home' | 'matches' | 'skills' | 'profile' | 'messaging';
+
 function SectionLoader() {
   return (
     <div className="section-loader" aria-live="polite">
@@ -35,14 +37,11 @@ function SectionLoader() {
 
 function App() {
   const [query, setQuery] = useState('');
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<DashboardSection>('home');
 
   const { apiStatus, skills, isLoading } = useApiInitialization();
-
   const { apiFetch } = useApi();
-
-  const { currentUser, authResolved, login, register, logout } =
-    useAuth(apiFetch);
+  const { currentUser, authResolved, login, register, logout } = useAuth(apiFetch);
 
   const {
     profileForm,
@@ -90,9 +89,7 @@ function App() {
   const handleLogin = useCallback(
     async (email: string, password: string) => {
       const result = await login(email, password);
-      if (result.success) {
-        setProfileMessage('');
-      }
+      if (result.success) setProfileMessage('');
       return result;
     },
     [login, setProfileMessage]
@@ -101,9 +98,7 @@ function App() {
   const handleRegister = useCallback(
     async (name: string, email: string, password: string) => {
       const result = await register(name, email, password);
-      if (result.success) {
-        setProfileMessage('');
-      }
+      if (result.success) setProfileMessage('');
       return result;
     },
     [register, setProfileMessage]
@@ -115,76 +110,271 @@ function App() {
   }, [logout, setProfileMessage]);
 
   const handleFiltersChange = useCallback(
-    (filters: MatchFilters) => {
-      updateFilters(filters);
-    },
+    (filters: MatchFilters) => { updateFilters(filters); },
     [updateFilters]
   );
 
   const handleStartConversation = useCallback(
     async (matchId: number) => {
       await startConversation(matchId);
-      setIsChatOpen(true);
+      setActiveSection('messaging');
     },
     [startConversation]
   );
+
+  const nav = (section: DashboardSection) => () => setActiveSection(section);
 
   return (
     <>
       <Seo />
       <div className="page-wrapper">
-        <Header apiStatus={apiStatus} user={currentUser} onLogout={handleLogout} onOpenMessages={() => setIsChatOpen(true)} unreadCount={unreadCount} />
+        <Header
+          apiStatus={apiStatus}
+          user={currentUser}
+          onLogout={handleLogout}
+        />
 
         {currentUser ? (
-          /* LOGGED IN: Full Dashboard */
+          /* LOGGED IN */
           <main className="dashboard" aria-busy={isLoading || profileLoading}>
-            <section className="panel">
-              <h2>Mon profil</h2>
-              <div className="panel-content">
-                <ProfileForm
-                  form={profileForm}
-                  onUpdateField={updateProfileField}
-                  onSave={saveProfile}
-                  loading={profileLoading}
-                  saving={profileSaving}
-                  message={profileMessage}
-                />
-              </div>
-            </section>
 
-            <section className="panel">
-              <h2>Recherche</h2>
-              <div className="panel-content">
-                <SkillsList
-                  skills={visibleSkills}
-                  query={query}
-                  onQueryChange={setQuery}
-                  isLoading={isLoading}
-                />
+            {/* ── Sidebar ── */}
+            <aside className="dashboard-sidebar">
+              <div className="sidebar-identity">
+                <div className="profile-header__avatar">
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="profile-header__info">
+                  <span className="profile-header__name">{currentUser.name}</span>
+                  <span className="profile-header__email">{currentUser.email}</span>
+                </div>
               </div>
-            </section>
 
-            <section className="panel">
-              <h2>Matchs</h2>
-              <div className="panel-content">
-                <Suspense fallback={<SectionLoader />}>
-                  <MatchSection
-                    currentUser={currentUser}
-                    matchPreview={matchPreview}
-                    topMatches={topMatches}
-                    matchFilters={matchFilters}
-                    onFiltersChange={handleFiltersChange}
-                    onStartConversation={handleStartConversation}
-                    hintMessage={matchHintMessage}
-                  />
-                </Suspense>
-              </div>
-            </section>
+              <nav className="sidebar-nav" aria-label="Navigation">
+                <button
+                  className={`sidebar-nav__link${activeSection === 'home' ? ' sidebar-nav__link--active' : ''}`}
+                  onClick={nav('home')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                  Accueil
+                </button>
+
+                <button
+                  className={`sidebar-nav__link${activeSection === 'matches' ? ' sidebar-nav__link--active' : ''}`}
+                  onClick={nav('matches')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" />
+                  </svg>
+                  Matchs
+                </button>
+
+                <button
+                  className={`sidebar-nav__link${activeSection === 'skills' ? ' sidebar-nav__link--active' : ''}`}
+                  onClick={nav('skills')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+                  </svg>
+                  Compétences
+                </button>
+
+                <button
+                  className={`sidebar-nav__link${activeSection === 'profile' ? ' sidebar-nav__link--active' : ''}`}
+                  onClick={nav('profile')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                  Profil
+                </button>
+
+                <button
+                  className={`sidebar-nav__link${activeSection === 'messaging' ? ' sidebar-nav__link--active' : ''}`}
+                  onClick={nav('messaging')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  Messagerie
+                  {unreadCount > 0 && (
+                    <span className="sidebar-nav__badge">{unreadCount}</span>
+                  )}
+                </button>
+              </nav>
+            </aside>
+
+            {/* ── Main ── */}
+            <div className="dashboard-main">
+              {activeSection === 'home' && (
+                <div className="main-section">
+                  <div className="main-section__header">Accueil</div>
+                  <div className="main-section__body">
+                    <div className="home-welcome">
+                      <h2 className="home-welcome__title">Bonjour, {currentUser.name.split(' ')[0]}&nbsp;👋</h2>
+                      <p className="home-welcome__sub">Voici un résumé de votre activité sur SkillSwap.</p>
+                    </div>
+
+                    <div className="home-stats">
+                      <div className="home-stat-card">
+                        <span className="home-stat-card__value">{topMatches.length}</span>
+                        <span className="home-stat-card__label">Matchs disponibles</span>
+                      </div>
+                      <div className="home-stat-card">
+                        <span className="home-stat-card__value">{skills.length}</span>
+                        <span className="home-stat-card__label">Compétences</span>
+                      </div>
+                      <div className="home-stat-card">
+                        <span className="home-stat-card__value">{unreadCount}</span>
+                        <span className="home-stat-card__label">Messages non lus</span>
+                      </div>
+                    </div>
+
+                    <h3 className="home-section-title">Actions rapides</h3>
+                    <div className="home-actions">
+                      <button className="home-action-card" onClick={nav('matches')}>
+                        <div className="home-action-card__icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" />
+                          </svg>
+                        </div>
+                        <div className="home-action-card__body">
+                          <span className="home-action-card__title">Mes matchs</span>
+                          <span className="home-action-card__desc">Découvrez vos meilleurs profils compatibles</span>
+                        </div>
+                        <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                      </button>
+
+                      <button className="home-action-card" onClick={nav('skills')}>
+                        <div className="home-action-card__icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+                          </svg>
+                        </div>
+                        <div className="home-action-card__body">
+                          <span className="home-action-card__title">Compétences</span>
+                          <span className="home-action-card__desc">Explorez toutes les compétences disponibles</span>
+                        </div>
+                        <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                      </button>
+
+                      <button className="home-action-card" onClick={nav('profile')}>
+                        <div className="home-action-card__icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                          </svg>
+                        </div>
+                        <div className="home-action-card__body">
+                          <span className="home-action-card__title">Mon profil</span>
+                          <span className="home-action-card__desc">Mettez à jour votre localisation et vos compétences</span>
+                        </div>
+                        <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                      </button>
+
+                      <button className="home-action-card" onClick={nav('messaging')}>
+                        <div className="home-action-card__icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                          </svg>
+                        </div>
+                        <div className="home-action-card__body">
+                          <span className="home-action-card__title">Messagerie
+                            {unreadCount > 0 && <span className="home-action-card__badge">{unreadCount}</span>}
+                          </span>
+                          <span className="home-action-card__desc">Échangez avec vos partenaires</span>
+                        </div>
+                        <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'matches' && (
+                <div className="main-section">
+                  <div className="main-section__header">Matchs</div>
+                  <div className="main-section__body">
+                    <Suspense fallback={<SectionLoader />}>
+                      <MatchSection
+                        currentUser={currentUser}
+                        matchPreview={matchPreview}
+                        topMatches={topMatches}
+                        matchFilters={matchFilters}
+                        onFiltersChange={handleFiltersChange}
+                        onStartConversation={handleStartConversation}
+                        hintMessage={matchHintMessage}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'skills' && (
+                <div className="main-section">
+                  <div className="main-section__header">Compétences</div>
+                  <div className="main-section__body">
+                    <SkillsList
+                      skills={visibleSkills}
+                      query={query}
+                      onQueryChange={setQuery}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'profile' && (
+                <div className="main-section">
+                  <div className="main-section__header">Profil</div>
+                  <div className="main-section__body">
+                    <div className="profile-header">
+                      <div className="profile-header__avatar">
+                        {currentUser.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="profile-header__info">
+                        <span className="profile-header__name">{currentUser.name}</span>
+                        <span className="profile-header__email">{currentUser.email}</span>
+                      </div>
+                    </div>
+                    <ProfileForm
+                      form={profileForm}
+                      onUpdateField={updateProfileField}
+                      onSave={saveProfile}
+                      loading={profileLoading}
+                      saving={profileSaving}
+                      message={profileMessage}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'messaging' && (
+                <div className="main-section main-section--messaging">
+                  <Suspense fallback={<SectionLoader />}>
+                    <MessagingPanel
+                      currentUser={currentUser}
+                      conversations={conversations}
+                      activeConvId={activeConvId}
+                      onSelectConversation={selectConversation}
+                      messages={convMessages}
+                      newMessage={newMessage}
+                      onNewMessageChange={setNewMessage}
+                      onSendMessage={sendMessage}
+                      messagesEndRef={messagesEndRef}
+                      isUnread={isUnread}
+                      sending={messagingSending}
+                    />
+                  </Suspense>
+                </div>
+              )}
+            </div>
           </main>
         ) : (
-          /* NOT LOGGED IN: Auth Landing Page */
+          /* NOT LOGGED IN */
           <main className="auth-landing" aria-busy={isLoading}>
-            <div className="auth-landing-card">
+            <div className="auth-landing-inner">
               <div className="auth-landing-brand">
                 <div className="auth-logo">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -192,52 +382,47 @@ function App() {
                   </svg>
                 </div>
                 <h1>SkillSwap</h1>
-                <p>Échangez vos compétences, apprenez ensemble</p>
+                <p>Échangez vos compétences,<br />apprenez ensemble.</p>
+                <ul className="auth-bullets">
+                  <li>
+                    <span className="auth-bullets__icon">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </span>
+                    Trouvez des partenaires d'apprentissage locaux
+                  </li>
+                  <li>
+                    <span className="auth-bullets__icon">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+                      </svg>
+                    </span>
+                    Proposez ce que vous maîtrisez, demandez ce que vous voulez apprendre
+                  </li>
+                  <li>
+                    <span className="auth-bullets__icon">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </span>
+                    Échangez directement par messagerie
+                  </li>
+                </ul>
               </div>
 
-              <AuthForm
-                onLogin={handleLogin}
-                onRegister={handleRegister}
-                loading={false}
-              />
+              <div className="auth-landing-card">
+                <AuthForm
+                  onLogin={handleLogin}
+                  onRegister={handleRegister}
+                  loading={false}
+                />
+              </div>
             </div>
           </main>
-        )}
-
-        {/* Chat Modal */}
-        {isChatOpen && (
-          <div className="chat-modal">
-            <div className="chat-modal-header">
-              <h3>Messagerie</h3>
-              <button
-                className="chat-close"
-                onClick={() => setIsChatOpen(false)}
-                aria-label="Fermer"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-            <div className="chat-modal-body">
-              <Suspense fallback={<SectionLoader />}>
-                <MessagingPanel
-                  currentUser={currentUser}
-                  conversations={conversations}
-                  activeConvId={activeConvId}
-                  onSelectConversation={selectConversation}
-                  messages={convMessages}
-                  newMessage={newMessage}
-                  onNewMessageChange={setNewMessage}
-                  onSendMessage={sendMessage}
-                  messagesEndRef={messagesEndRef}
-                  isUnread={isUnread}
-                  sending={messagingSending}
-                />
-              </Suspense>
-            </div>
-          </div>
         )}
       </div>
     </>

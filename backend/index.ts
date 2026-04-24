@@ -1,4 +1,4 @@
-import express, { Response, NextFunction, Request } from 'express';
+import express, { Response, NextFunction, Request, type Express } from 'express';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -84,7 +84,7 @@ const logger: Logger = {
     ),
 };
 
-const app = express();
+const app: Express = express();
 const prisma = new PrismaClient();
 const csrfTokens = new Map<number, { token: string; expires: number }>();
 const PORT = process.env.PORT || 4000;
@@ -363,7 +363,7 @@ const verifyRefreshToken = async (token: string): Promise<JwtPayload | null> => 
 };
 
 // Utiliser le middleware d'authentification avec rotation de secrets
-const authRequired = authMiddleware.verifyTokenWithRotation.bind(authMiddleware);
+const authRequired = authMiddleware.verifyToken.bind(authMiddleware);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1334,15 +1334,11 @@ app.get('/api/debug/env', (_req, res) => {
   });
 });
 
-// Routes de sécurité et monitoring
-import securityRoutes from './src/routes/security-simple.js';
-app.use('/api/security', securityRoutes);
-
 // Endpoint pour vérifier l'état de sécurité global
 app.get('/api/security/status', (_req, res) => {
   const securityStatus = {
     authentication: {
-      jwtRotation: true,
+      jwtRotation: false,
       refreshTokens: true,
       csrfProtection: true,
       rateLimiting: true

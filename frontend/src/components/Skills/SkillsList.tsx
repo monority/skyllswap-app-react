@@ -28,12 +28,7 @@ interface SkillsListProps {
   isLoading: boolean;
 }
 
-function SkillsList({
-  skills,
-  query,
-  onQueryChange,
-  isLoading,
-}: SkillsListProps) {
+function SkillsList({ skills, query, onQueryChange, isLoading }: SkillsListProps) {
   return (
     <div className="skills-container">
       <div className="skills-search">
@@ -45,7 +40,7 @@ function SkillsList({
           value={query}
           onChange={e => onQueryChange(e.target.value)}
           placeholder="Rechercher une compétence..."
-          aria-label="Filtrer les competences"
+          aria-label="Filtrer les compétences"
           className="skills-search__input"
         />
       </div>

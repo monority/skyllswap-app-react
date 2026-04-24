@@ -12,7 +12,7 @@ describe('useMatches', () => {
 
   it('initializes with default filters', () => {
     const { result } = renderHook(() =>
-      useMatches(mockCurrentUser as never, true, mockApiFetch)
+      useMatches(mockCurrentUser as never, false, mockApiFetch)
     );
 
     expect(result.current.matchFilters).toEqual({
@@ -28,7 +28,7 @@ describe('useMatches', () => {
     });
 
     const { result } = renderHook(() =>
-      useMatches(null, true, mockFetchPreview)
+      useMatches(null, false, mockFetchPreview)
     );
 
     expect(result.current.matchPreview).toBeNull();
@@ -37,7 +37,7 @@ describe('useMatches', () => {
   describe('updateFilters', () => {
     it('updates city filter', () => {
       const { result } = renderHook(() =>
-        useMatches(mockCurrentUser as never, true, mockApiFetch)
+        useMatches(mockCurrentUser as never, false, mockApiFetch)
       );
 
       act(() => {
@@ -49,7 +49,7 @@ describe('useMatches', () => {
 
     it('updates availability filter', () => {
       const { result } = renderHook(() =>
-        useMatches(mockCurrentUser as never, true, mockApiFetch)
+        useMatches(mockCurrentUser as never, false, mockApiFetch)
       );
 
       act(() => {
@@ -61,7 +61,7 @@ describe('useMatches', () => {
 
     it('merges with existing filters', () => {
       const { result } = renderHook(() =>
-        useMatches(mockCurrentUser as never, true, mockApiFetch)
+        useMatches(mockCurrentUser as never, false, mockApiFetch)
       );
 
       act(() => {

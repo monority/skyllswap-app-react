@@ -1,6 +1,6 @@
 # SkillSwap
 
-Plateforme d'échange de compétences entre pairs.
+Plateforme simple d'echange de competences entre pairs.
 
 ## Stack
 
@@ -8,7 +8,7 @@ Plateforme d'échange de compétences entre pairs.
 |----------|---------|----------|
 | React + Vite + TypeScript | Express + Socket.IO | PostgreSQL + Prisma |
 
-## Installation
+## Lancer le projet
 
 ```bash
 # Backend
@@ -18,9 +18,8 @@ npm install
 npm run prisma:migrate
 npm run dev
 
-# Frontend (autre terminal)
+# Frontend
 cd frontend
-copy .env.example .env
 npm install
 npm run dev
 ```
@@ -28,24 +27,23 @@ npm run dev
 ## Tests
 
 ```bash
-cd backend && npm test
-cd frontend && npm test
+cd backend
+npm test
+
+cd frontend
+npm test
 ```
 
-## API Endpoints
+## Endpoints utiles
 
-| Endpoint | Auth | Description |
-|----------|------|-------------|
-| `POST /api/auth/register` | - | Inscription |
-| `POST /api/auth/login` | - | Connexion |
-| `GET /api/auth/me` | Bearer | Profil utilisateur |
-| `GET /api/skills` | - | Liste des compétences |
-| `GET /api/matches/me` | Bearer | Mes matchs |
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/skills`
+- `GET /api/matches/me`
 
-## Production
+## Notes
 
-**Frontend**: Vercel  
-**Backend**: Render  
-**Database**: Neon PostgreSQL
-
-Workflows GitHub Actions: build, test, deploy automatique sur `main`.
+- Frontend deploye sur Vercel
+- Backend deploye sur Render
+- Base de donnees sur Neon PostgreSQL

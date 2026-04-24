@@ -10,11 +10,9 @@ interface HeaderProps {
   apiStatus: string;
   user?: User | null;
   onLogout?: () => Promise<void>;
-  onOpenMessages?: () => void;
-  unreadCount?: number;
 }
 
-function Header({ apiStatus, user, onLogout, onOpenMessages, unreadCount }: HeaderProps) {
+function Header({ apiStatus, user, onLogout }: HeaderProps) {
   const isOnline = apiStatus === 'ok';
   const isLoading = apiStatus === 'checking';
 
@@ -22,23 +20,19 @@ function Header({ apiStatus, user, onLogout, onOpenMessages, unreadCount }: Head
     <header className="app-header">
       <div className="header-left">
         <div className="logo">
-          <span className="logo-icon">⚡</span>
+          <span className="logo-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+          </span>
           <span className="logo-text">SkillSwap</span>
         </div>
         <span className="header-tagline">Échange de compétences local</span>
       </div>
 
       <div className="header-right">
-        {user && onOpenMessages && (
-          <button className="header-messages" title="Messages" onClick={onOpenMessages}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            {unreadCount && unreadCount > 0 && (
-              <span className="header-messages-badge">{unreadCount}</span>
-            )}
-          </button>
-        )}
         {user ? (
           <div className="header-user">
             <span className="header-user-name">{user.name}</span>

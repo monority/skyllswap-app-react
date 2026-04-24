@@ -1,6 +1,14 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { secretManager } from '../utils/secrets.js';
+
+const getJwtSecret = (): string => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error('JWT_SECRET is required in environment variables');
+    }
+
+    return secret;
+};
 
 export interface JwtPayload {
     sub: string;
@@ -31,10 +39,7 @@ export class AuthMiddleware {
         return AuthMiddleware.instance;
     }
 
-    /**
-     * Middleware pour vérifier les tokens JWT avec support de rotation
-     */
-    verifyTokenWithRotation(req: Request, res: Response, next: NextFunction): void {
+    verifyToken(req: Request, res: Response, next: NextFunction): void {
         const header = req.headers.authorization || '';
         const headerParts = header.split(' ');
         const scheme = headerParts[0] || '';
@@ -48,50 +53,25 @@ export class AuthMiddleware {
         }
 
         try {
-            // Essayer de vérifier avec le secret courant
-            const currentSecret = secretManager.getCurrentSecret('jwt');
-            const payload = jwt.verify(accessToken, currentSecret) as JwtPayload;
+            const payload = jwt.verify(accessToken, getJwtSecret()) as JwtPayload;
             req.auth = payload;
             next();
         } catch (error) {
-            // Si échec, essayer avec l'ancien secret (grace period)
-            const previousSecret = secretManager.getPreviousSecret('jwt');
-            if (previousSecret) {
-                try {
-                    const payload = jwt.verify(accessToken, previousSecret) as JwtPayload;
-                    req.auth = payload;
-
-                    // Loguer l'utilisation d'un ancien secret (pour monitoring)
-                    console.warn('⚠️ Token verified with previous secret', {
-                        userId: payload.sub,
-                        timestamp: new Date().toISOString()
-                    });
-
-                    next();
-                    return;
-                } catch {
-                    // Les deux secrets ont échoué
-                }
-            }
-
-            // Token invalide ou expiré
             if ((error as Error).name === 'TokenExpiredError') {
                 res.status(401).json({
                     message: 'Invalid or expired token',
                     code: 'TOKEN_EXPIRED'
                 });
-            } else {
-                res.status(401).json({
-                    message: 'Invalid token',
-                    code: 'TOKEN_INVALID'
-                });
+                return;
             }
+
+            res.status(401).json({
+                message: 'Invalid token',
+                code: 'TOKEN_INVALID'
+            });
         }
     }
 
-    /**
-     * Middleware pour vérifier les tokens de rafraîchissement
-     */
     verifyRefreshToken(req: Request, res: Response, next: NextFunction): void {
         const refreshToken = req.cookies ? req.cookies[process.env.REFRESH_TOKEN_COOKIE_NAME || 'skillswap_refresh'] : null;
 
@@ -101,8 +81,7 @@ export class AuthMiddleware {
         }
 
         try {
-            const currentSecret = secretManager.getCurrentSecret('jwt');
-            const payload = jwt.verify(refreshToken, currentSecret) as JwtPayload;
+            const payload = jwt.verify(refreshToken, getJwtSecret()) as JwtPayload;
 
             if (payload.type !== 'refresh') {
                 res.status(401).json({ message: 'Invalid refresh token type' });
@@ -111,32 +90,7 @@ export class AuthMiddleware {
 
             req.auth = payload;
             next();
-        } catch (error) {
-            // Essayer avec l'ancien secret
-            const previousSecret = secretManager.getPreviousSecret('jwt');
-            if (previousSecret) {
-                try {
-                    const payload = jwt.verify(refreshToken, previousSecret) as JwtPayload;
-
-                    if (payload.type !== 'refresh') {
-                        res.status(401).json({ message: 'Invalid refresh token type' });
-                        return;
-                    }
-
-                    req.auth = payload;
-
-                    console.warn('⚠️ Refresh token verified with previous secret', {
-                        userId: payload.sub,
-                        timestamp: new Date().toISOString()
-                    });
-
-                    next();
-                    return;
-                } catch {
-                    // Les deux secrets ont échoué
-                }
-            }
-
+        } catch {
             res.status(401).json({
                 message: 'Invalid or expired refresh token',
                 code: 'REFRESH_TOKEN_INVALID'
@@ -144,12 +98,8 @@ export class AuthMiddleware {
         }
     }
 
-    /**
-     * Générer un token JWT avec le secret courant
-     */
     signToken(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresIn: string | number): string {
-        const secret = secretManager.getCurrentSecret('jwt');
-        return jwt.sign(payload, secret, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
+        return jwt.sign(payload, getJwtSecret(), { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
     }
 
     /**

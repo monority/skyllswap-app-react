@@ -32,52 +32,57 @@ function ProfileForm({
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <Input
-        label="Ville"
-        id="profile-city"
-        value={form.city}
-        onChange={e => onUpdateField('city', e.target.value)}
-        placeholder="Ex: Paris"
-        minLength={2}
-        maxLength={60}
-        required
-      />
-
-      <Select
-        label="Disponibilité"
-        id="profile-availability"
-        value={form.availability}
-        onChange={e => onUpdateField('availability', e.target.value)}
-        options={AVAILABILITY_OPTIONS}
-      />
-
-      <div className="form-field">
-        <label className="form-label" htmlFor="profile-offers">
-          Ce que je propose
-        </label>
-        <textarea
-          id="profile-offers"
-          className="input textarea"
-          value={form.offersText}
-          onChange={e => onUpdateField('offersText', e.target.value)}
-          placeholder="React, Design UI, Anglais"
-          rows={2}
+    <form className="profile-form" onSubmit={handleSubmit}>
+      <div className="profile-section">
+        <span className="profile-section-label">Localisation</span>
+        <Input
+          label="Ville"
+          id="profile-city"
+          value={form.city}
+          onChange={e => onUpdateField('city', e.target.value)}
+          placeholder="Ex: Paris"
+          minLength={2}
+          maxLength={60}
+          required
+        />
+        <Select
+          label="Disponibilité"
+          id="profile-availability"
+          value={form.availability}
+          onChange={e => onUpdateField('availability', e.target.value)}
+          options={AVAILABILITY_OPTIONS}
         />
       </div>
 
-      <div className="form-field">
-        <label className="form-label" htmlFor="profile-needs">
-          Ce que je recherche
-        </label>
-        <textarea
-          id="profile-needs"
-          className="input textarea"
-          value={form.needsText}
-          onChange={e => onUpdateField('needsText', e.target.value)}
-          placeholder="Node.js, Photographie, Cuisine"
-          rows={2}
-        />
+      <div className="profile-section">
+        <span className="profile-section-label">Compétences</span>
+        <div className="form-field">
+          <label className="form-label" htmlFor="profile-offers">
+            Ce que je propose
+          </label>
+          <textarea
+            id="profile-offers"
+            className="input textarea"
+            value={form.offersText}
+            onChange={e => onUpdateField('offersText', e.target.value)}
+            placeholder="React, Design UI, Anglais"
+            rows={2}
+          />
+        </div>
+
+        <div className="form-field">
+          <label className="form-label" htmlFor="profile-needs">
+            Ce que je recherche
+          </label>
+          <textarea
+            id="profile-needs"
+            className="input textarea"
+            value={form.needsText}
+            onChange={e => onUpdateField('needsText', e.target.value)}
+            placeholder="Node.js, Photographie, Cuisine"
+            rows={2}
+          />
+        </div>
       </div>
 
       <Button type="submit" disabled={saving || loading}>

@@ -28,9 +28,7 @@ function MatchSection({
     onFiltersChange({ ...matchFilters, city: e.target.value });
   };
 
-  const handleAvailabilityChange = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
+  const handleAvailabilityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onFiltersChange({ ...matchFilters, availability: e.target.value });
   };
 
@@ -54,7 +52,7 @@ function MatchSection({
           <Select
             value={matchFilters.availability}
             onChange={handleAvailabilityChange}
-            aria-label="Disponibilite"
+            aria-label="Disponibilité"
             options={[
               { value: '', label: 'Toutes dispo.' },
               ...AVAILABILITY_OPTIONS,
@@ -62,7 +60,6 @@ function MatchSection({
           />
         </div>
       )}
-
       {!currentUser && matchPreview && (
         <div className="match-preview">
           <div className="match-preview__header">
@@ -83,7 +80,7 @@ function MatchSection({
             <path d="m8 12 3 3 5-5"></path>
           </svg>
           <p>Aucun profil correspondant</p>
-          <span>Elargis tes filtres ou complète ton profil</span>
+          <span>Élargis tes filtres ou complète ton profil</span>
         </div>
       )}
 
@@ -97,18 +94,25 @@ function MatchSection({
               <div className="match-row__info">
                 <div className="match-row__header">
                   <span className="match-row__name">{match.pseudo}</span>
+                  <span className="match-score">{match.compatibility}%</span>
+                </div>
+                {(match.city || match.availability) && (
                   <span className="match-row__meta">
                     {match.city}{match.availability ? ` · ${match.availability}` : ''}
                   </span>
-                </div>
+                )}
                 <div className="match-row__skills">
-                  <span className="match-row__give">{match.gives}</span>
-                  <span className="match-row__arrow">→</span>
-                  <span className="match-row__want">{match.wants}</span>
+                  <span className="match-row__give">
+                    <span className="match-row__skill-prefix">↑</span>
+                    <span className="match-row__skill-text">{match.gives}</span>
+                  </span>
+                  <span className="match-row__want">
+                    <span className="match-row__skill-prefix">↓</span>
+                    <span className="match-row__skill-text">{match.wants}</span>
+                  </span>
                 </div>
               </div>
               <div className="match-row__actions">
-                <span className="match-score">{match.compatibility}%</span>
                 <Button size="sm" onClick={() => onStartConversation(match.matchId)}>
                   Contacter
                 </Button>
