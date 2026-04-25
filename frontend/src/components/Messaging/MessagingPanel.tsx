@@ -211,6 +211,8 @@ function MessagingPanel({
   sending,
 }: MessagingPanelProps) {
   const [showThreadMobile, setShowThreadMobile] = useState(false);
+  const unreadConversationCount = conversations.filter(conv => isUnread(conv)).length;
+  const activeConversation = conversations.find(c => c.id === activeConvId) || null;
 
   const handleSelectConversation = useCallback((convId: number) => {
     onSelectConversation(convId);
@@ -228,27 +230,47 @@ function MessagingPanel({
   const showThread = activeConvId && showThreadMobile;
 
   return (
-    <div className={`messaging-layout${showThread ? ' messaging-layout--thread-open' : ''}`}>
-      <ConversationList
-        conversations={conversations}
-        currentUserId={currentUser.id}
-        activeConvId={activeConvId}
-        onSelectConversation={handleSelectConversation}
-        isUnread={isUnread}
-      />
-      <div className="message-thread">
-        <MessageThread
-          messages={messages}
-          activeConvId={activeConvId}
+    <div className="messaging-shell">
+      <div className="messaging-hero">
+        <div className="messaging-hero__icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            <path d="M8 10h8M8 14h5" />
+          </svg>
+        </div>
+        <div className="messaging-hero__body">
+          <p className="messaging-hero__eyebrow">Messagerie</p>
+          <h3 className="messaging-hero__title">Discussions en cours et échanges rapides.</h3>
+          <p className="messaging-hero__text">Retrouvez vos conversations, repérez les nouveaux messages et gardez le contexte sous les yeux.</p>
+        </div>
+        <div className="messaging-hero__stats">
+          <span className="messaging-hero__pill messaging-hero__pill--active">{conversations.length} conversations</span>
+          <span className="messaging-hero__pill messaging-hero__pill--unread">{unreadConversationCount} non lues</span>
+        </div>
+      </div>
+
+      <div className={`messaging-layout${showThread ? ' messaging-layout--thread-open' : ''}`}>
+        <ConversationList
+          conversations={conversations}
           currentUserId={currentUser.id}
-          newMessage={newMessage}
-          onNewMessageChange={onNewMessageChange}
-          onSendMessage={onSendMessage}
-          sending={sending}
-          messagesEndRef={messagesEndRef}
-          activeConversation={conversations.find(c => c.id === activeConvId)}
-          onBack={activeConvId ? handleBackToList : undefined}
+          activeConvId={activeConvId}
+          onSelectConversation={handleSelectConversation}
+          isUnread={isUnread}
         />
+        <div className="message-thread">
+          <MessageThread
+            messages={messages}
+            activeConvId={activeConvId}
+            currentUserId={currentUser.id}
+            newMessage={newMessage}
+            onNewMessageChange={onNewMessageChange}
+            onSendMessage={onSendMessage}
+            sending={sending}
+            messagesEndRef={messagesEndRef}
+            activeConversation={activeConversation}
+            onBack={activeConvId ? handleBackToList : undefined}
+          />
+        </div>
       </div>
     </div>
   );

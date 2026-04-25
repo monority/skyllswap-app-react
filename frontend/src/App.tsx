@@ -78,6 +78,16 @@ function App() {
 
   const debouncedQuery = useDebounce(query, 300);
 
+  const profileOffersCount = profileForm.offersText
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean).length;
+
+  const profileNeedsCount = profileForm.needsText
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean).length;
+
   const visibleSkills = useMemo(() => {
     const normalized = debouncedQuery.trim().toLowerCase();
     if (!normalized) return skills;
@@ -158,7 +168,7 @@ function App() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
-                  Accueil
+                  <span className="sidebar-nav__label">Accueil</span>
                 </button>
 
                 <button
@@ -168,7 +178,7 @@ function App() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" />
                   </svg>
-                  Matchs
+                  <span className="sidebar-nav__label">Matchs</span>
                 </button>
 
                 <button
@@ -178,7 +188,7 @@ function App() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
                   </svg>
-                  Compétences
+                  <span className="sidebar-nav__label">Compétences</span>
                 </button>
 
                 <button
@@ -188,7 +198,7 @@ function App() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                   </svg>
-                  Profil
+                  <span className="sidebar-nav__label">Profil</span>
                 </button>
 
                 <button
@@ -198,7 +208,7 @@ function App() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
-                  Messagerie
+                  <span className="sidebar-nav__label">Messagerie</span>
                   {unreadCount > 0 && (
                     <span className="sidebar-nav__badge">{unreadCount}</span>
                   )}
@@ -218,17 +228,41 @@ function App() {
                     </div>
 
                     <div className="home-stats">
-                      <div className="home-stat-card">
+                      <div className="home-stat-card home-stat-card--matches">
+                        <div className="home-stat-card__top">
+                          <span className="home-stat-card__icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="m8 12 3 3 5-5" />
+                            </svg>
+                          </span>
+                          <span className="home-stat-card__label">Matchs disponibles</span>
+                        </div>
                         <span className="home-stat-card__value">{topMatches.length}</span>
-                        <span className="home-stat-card__label">Matchs disponibles</span>
                       </div>
-                      <div className="home-stat-card">
+                      <div className="home-stat-card home-stat-card--skills">
+                        <div className="home-stat-card__top">
+                          <span className="home-stat-card__icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 3v18" />
+                              <path d="M5 8h14" />
+                              <path d="M7 16h10" />
+                            </svg>
+                          </span>
+                          <span className="home-stat-card__label">Compétences</span>
+                        </div>
                         <span className="home-stat-card__value">{skills.length}</span>
-                        <span className="home-stat-card__label">Compétences</span>
                       </div>
-                      <div className="home-stat-card">
+                      <div className="home-stat-card home-stat-card--messages">
+                        <div className="home-stat-card__top">
+                          <span className="home-stat-card__icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                          </span>
+                          <span className="home-stat-card__label">Messages non lus</span>
+                        </div>
                         <span className="home-stat-card__value">{unreadCount}</span>
-                        <span className="home-stat-card__label">Messages non lus</span>
                       </div>
                     </div>
 
@@ -242,7 +276,10 @@ function App() {
                         </div>
                         <div className="home-action-card__body">
                           <span className="home-action-card__title">Mes matchs</span>
-                          <span className="home-action-card__desc">Découvrez vos meilleurs profils compatibles</span>
+                          <span className="home-action-card__desc">
+                            <span className="home-action-card__desc-text home-action-card__desc-text--desktop">Découvrez vos meilleurs profils compatibles</span>
+                            <span className="home-action-card__desc-text home-action-card__desc-text--mobile">Profils compatibles</span>
+                          </span>
                         </div>
                         <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                       </button>
@@ -255,7 +292,10 @@ function App() {
                         </div>
                         <div className="home-action-card__body">
                           <span className="home-action-card__title">Compétences</span>
-                          <span className="home-action-card__desc">Explorez toutes les compétences disponibles</span>
+                          <span className="home-action-card__desc">
+                            <span className="home-action-card__desc-text home-action-card__desc-text--desktop">Explorez toutes les compétences disponibles</span>
+                            <span className="home-action-card__desc-text home-action-card__desc-text--mobile">Toutes les compétences</span>
+                          </span>
                         </div>
                         <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                       </button>
@@ -268,7 +308,10 @@ function App() {
                         </div>
                         <div className="home-action-card__body">
                           <span className="home-action-card__title">Mon profil</span>
-                          <span className="home-action-card__desc">Mettez à jour votre localisation et vos compétences</span>
+                          <span className="home-action-card__desc">
+                            <span className="home-action-card__desc-text home-action-card__desc-text--desktop">Mettez à jour votre localisation et vos compétences</span>
+                            <span className="home-action-card__desc-text home-action-card__desc-text--mobile">Mise à jour du profil</span>
+                          </span>
                         </div>
                         <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                       </button>
@@ -283,7 +326,10 @@ function App() {
                           <span className="home-action-card__title">Messagerie
                             {unreadCount > 0 && <span className="home-action-card__badge">{unreadCount}</span>}
                           </span>
-                          <span className="home-action-card__desc">Échangez avec vos partenaires</span>
+                          <span className="home-action-card__desc">
+                            <span className="home-action-card__desc-text home-action-card__desc-text--desktop">Échangez avec vos partenaires</span>
+                            <span className="home-action-card__desc-text home-action-card__desc-text--mobile">Échangez avec vos partenaires</span>
+                          </span>
                         </div>
                         <svg className="home-action-card__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                       </button>
@@ -329,6 +375,37 @@ function App() {
                 <div className="main-section">
                   <div className="main-section__header">Profil</div>
                   <div className="main-section__body">
+                    <div className="profile-hero">
+                      <div className="profile-hero__art" aria-hidden="true">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                          <circle cx="32" cy="22" r="12" fill="currentColor" opacity="0.18" />
+                          <path d="M14 52c2.5-10.5 11-16 18-16s15.5 5.5 18 16" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                          <path d="M22 22l6 6 14-14" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="profile-hero__body">
+                        <p className="profile-hero__eyebrow">Profil public</p>
+                        <h3 className="profile-hero__title">Optimisez votre carte d&apos;échange</h3>
+                        <p className="profile-hero__text">
+                          Votre ville, votre disponibilité et vos compétences servent à générer des matchs plus pertinents.
+                        </p>
+                        <div className="profile-hero__chips">
+                          <span className="profile-hero__chip">Ville: {profileForm.city || 'Non renseignée'}</span>
+                          <span className="profile-hero__chip">Disponibilité: {profileForm.availability || 'À définir'}</span>
+                        </div>
+                      </div>
+                      <div className="profile-hero__stats">
+                        <div className="profile-hero__stat profile-hero__stat--offers">
+                          <span className="profile-hero__stat-value">{profileOffersCount}</span>
+                          <span className="profile-hero__stat-label">Compétences proposées</span>
+                        </div>
+                        <div className="profile-hero__stat profile-hero__stat--needs">
+                          <span className="profile-hero__stat-value">{profileNeedsCount}</span>
+                          <span className="profile-hero__stat-label">Compétences recherchées</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="profile-header">
                       <div className="profile-header__avatar">
                         {currentUser.name.charAt(0).toUpperCase()}

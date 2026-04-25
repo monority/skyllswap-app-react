@@ -34,7 +34,15 @@ function ProfileForm({
   return (
     <form className="profile-form" onSubmit={handleSubmit}>
       <div className="profile-section">
-        <span className="profile-section-label">Localisation</span>
+        <div className="profile-section__header">
+          <span className="profile-section__icon" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 21s6-5.33 6-11a6 6 0 1 0-12 0c0 5.67 6 11 6 11z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+          </span>
+          <span className="profile-section-label">Localisation</span>
+        </div>
         <Input
           label="Ville"
           id="profile-city"
@@ -55,7 +63,15 @@ function ProfileForm({
       </div>
 
       <div className="profile-section">
-        <span className="profile-section-label">Compétences</span>
+        <div className="profile-section__header">
+          <span className="profile-section__icon" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2 3.5 7v10L12 22l8.5-5V7L12 2z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </span>
+          <span className="profile-section-label">Compétences</span>
+        </div>
         <div className="form-field">
           <label className="form-label" htmlFor="profile-offers">
             Ce que je propose

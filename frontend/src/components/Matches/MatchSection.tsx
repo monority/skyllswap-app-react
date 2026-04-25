@@ -32,8 +32,30 @@ function MatchSection({
     onFiltersChange({ ...matchFilters, availability: e.target.value });
   };
 
+  const averageCompatibility = topMatches.length > 0
+    ? Math.round(topMatches.reduce((sum, match) => sum + match.compatibility, 0) / topMatches.length)
+    : 0;
+
   return (
     <div className="matches-container">
+      <div className="matches-hero">
+        <div className="matches-hero__icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m8 12 3 3 5-5" />
+          </svg>
+        </div>
+        <div className="matches-hero__body">
+          <p className="matches-hero__eyebrow">Matching</p>
+          <h3 className="matches-hero__title">Des profils compatibles.</h3>
+          <p className="matches-hero__text">Affinez par ville et disponibilité, puis ouvrez une conversation depuis les profils les plus proches.</p>
+        </div>
+        <div className="matches-hero__stats">
+          <span className="matches-hero__pill matches-hero__pill--count">{topMatches.length} résultats</span>
+          <span className="matches-hero__pill matches-hero__pill--score">{averageCompatibility}% moyen</span>
+        </div>
+      </div>
+
       {currentUser && (
         <div className="matches-filters">
           <div className="matches-filter">
@@ -75,7 +97,7 @@ function MatchSection({
 
       {currentUser && topMatches.length === 0 && (
         <div className="matches-empty">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="m8 12 3 3 5-5"></path>
           </svg>
@@ -88,8 +110,11 @@ function MatchSection({
         <div className="matches-list">
           {topMatches.map(match => (
             <div key={match.matchId} className="match-row">
-              <div className="match-row__avatar">
-                {match.pseudo.charAt(0).toUpperCase()}
+              <div className="match-row__avatar-wrap">
+                <div className="match-row__avatar">
+                  {match.pseudo.charAt(0).toUpperCase()}
+                </div>
+                <span className="match-row__avatar-glow" aria-hidden="true" />
               </div>
               <div className="match-row__info">
                 <div className="match-row__header">
@@ -101,6 +126,10 @@ function MatchSection({
                     {match.city}{match.availability ? ` · ${match.availability}` : ''}
                   </span>
                 )}
+                <div className="match-row__chips">
+                  {match.city && <span className="match-row__chip">{match.city}</span>}
+                  {match.availability && <span className="match-row__chip match-row__chip--soft">{match.availability}</span>}
+                </div>
                 <div className="match-row__skills">
                   <span className="match-row__give">
                     <span className="match-row__skill-prefix">↑</span>
@@ -113,6 +142,7 @@ function MatchSection({
                 </div>
               </div>
               <div className="match-row__actions">
+                <span className="match-row__action-label">Démarrer un échange</span>
                 <Button size="sm" onClick={() => onStartConversation(match.matchId)}>
                   Contacter
                 </Button>
