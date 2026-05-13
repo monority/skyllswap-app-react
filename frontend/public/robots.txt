@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://skillswap.app/sitemap.xml
-Host: https://skillswap.app
+Sitemap: https://skyllswap.vercel.app/sitemap.xml
+Host: https://skyllswap.vercel.app

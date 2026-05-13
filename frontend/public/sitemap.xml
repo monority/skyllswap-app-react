@@ -6,19 +6,7 @@
     <lastmod>2026-04-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://skillswap.app/" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://skillswap.app/en/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://skyllswap.vercel.app/" />
   </url>
-  <url>
-    <loc>https://skillswap.app/#competences</loc>
-    <lastmod>2026-04-16</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://skillswap.app/#messagerie</loc>
-    <lastmod>2026-04-16</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
+ 
 </urlset>
